@@ -1,0 +1,638 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20261030005130
+Username: BUTTMUD\skip
+RunAs User: BUTTMUD\skip
+Configuration Name: 
+Machine: BUTTMUD (Microsoft Windows NT 10.0.26300.0)
+Host Application: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\skip\Downloads\TaxGlasses-Claude-Setup.ps1
+Process ID: 26788
+PSVersion: 5.1.26100.9711
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.9711
+BuildVersion: 10.0.26100.9711
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+
+=== 1. SSH key for Claude Code ===
+Created C:\Users\skip\.ssh\claude-taxglasses (ed25519, no passphrase so Claude Code can use it unattended)
+256 SHA256:8n0Gh2zR6X6bSTsCYFmYPW5QfZGWr6z7+cwFFSA4xh4 claude-taxglasses (ED25519)
+
+=== 2. SSH alias g7-taxglasses ===
+Appended Host g7-taxglasses to C:\Users\skip\.ssh\config (other entries untouched)
+  identityfile ~/.ssh/claude-taxglasses
+Effective alias settings match.
+
+=== 3. Authorize the key for buttmud on G7 (using the existing g7_git key) ===
+added
+
+=== 4. Log in through the alias and list buttmud privileges ===
+user=buttmud host=buttserver
+uid=1000(buttmud) gid=1000(buttmud) groups=1000(buttmud),24(cdrom),25(floppy),27(sudo),29(audio),30(dip),44(video),46(plugdev),100(users),101(netdev),103(bluetooth)
+Matching Defaults entries for buttmud on buttserver:
+    env_reset, mail_badpass, secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin, use_pty
+
+User buttmud may run the following commands on buttserver:
+    (ALL : ALL) ALL
+    (memesniper) NOPASSWD: ALL
+    (root) NOPASSWD: /usr/bin/systemctl restart memesniper.service
+
+=== 5. Laptop checks (no secrets printed) ===
+ssh config Host/Match/Include lines:
+  2: Host g7-taxglasses
+ssh folder: claude-taxglasses, claude-taxglasses.pub, config, g7_git, g7_git.pub, id_ed25519, id_ed25519.pub, known_hosts, known_hosts.old
+core.sshCommand by scope (global, system, repo):
+file:.git/config	ssh -i C:/Users/skip/.ssh/g7_git -o IdentitiesOnly=yes
+GIT_SSH_COMMAND=[] GIT_SSH=[]
+g7	ssh://git@192.168.0.6:3333/srv/git/repos/TaxGlasses.git (fetch)
+g7	ssh://git@192.168.0.6:3333/srv/git/repos/TaxGlasses.git (push)
+origin	https://github.com/skipbrisc/TaxGlasses.git (fetch)
+origin	https://github.com/skipbrisc/TaxGlasses.git (push)
+remote.pushDefault=g7
+git: git version 2.55.0.windows.5
+ssh.exe : OpenSSH_for_Windows_9.5p2, LibreSSL 3.8.2
+At C:\Users\skip\Downloads\TaxGlasses-Claude-Setup.ps1:110 char:31
++ Write-Host ('ssh: ' + ((Run { ssh.exe -V }) -join ' '))
++                               ~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (OpenSSH_for_Win... LibreSSL 3.8.2:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ssh: OpenSSH_for_Windows_9.5p2, LibreSSL 3.8.2
+java : openjdk version "21.0.13.0.2" 2026-10-22 LTS
+At C:\Users\skip\Downloads\TaxGlasses-Claude-Setup.ps1:111 char:32
++ Write-Host ('java: ' + ((Run { java -version }) | Select-Object -Firs ...
++                                ~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (openjdk version... 2026-10-22 LTS:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+OpenJDK Runtime Environment Microsoft-15780113 (build 21.0.13.0.2+1-LTS)
+OpenJDK 64-Bit Server VM Microsoft-15780113 (build 21.0.13.0.2+1-LTS, mixed mode, sharing)
+java: openjdk version "21.0.13.0.2" 2026-10-22 LTS
+claude: 2.1.314 (Claude Code)
+ACLs:
+C:\Users\skip\.jenkins-cli\auth.txt buttmud\CodexSandboxUsers:(I)(RX)
+                                    NT AUTHORITY\SYSTEM:(I)(F)
+                                    BUILTIN\Administrators:(I)(F)
+                                    BUTTMUD\skip:(I)(F)
+
+Successfully processed 1 files; Failed processing 0 files
+C:\Users\skip\.ssh\claude-taxglasses BUILTIN\Administrators:(F)
+                                     NT AUTHORITY\SYSTEM:(F)
+                                     BUTTMUD\skip:(M)
+
+Successfully processed 1 files; Failed processing 0 files
+User Claude Code settings (values of key/token/secret/password/auth fields redacted):
+{
+  "permissions": {
+    "defaultMode": "dontAsk"
+  },
+  "model": "opus",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /c/Users/skip/.claude/skills/gstack/hosts/claude/hooks/timeline-stop-hook",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "remember@claude-plugins-official": true,
+    "codex@openai-codex": true,
+    "ecc@ecc": true,
+    "typesafe@typesafe-ai": true,
+    "vercel@anthropic-plugin-directory": true,
+    "frontend-design@anthropic-plugin-directory": true,
+    "code-simplifier@anthropic-plugin-directory": true,
+    "github@anthropic-plugin-directory": true,
+    "playwright@anthropic-plugin-directory": true,
+    "claude-md-management@anthropic-plugin-directory": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "ralph-loop@anthropic-plugin-directory": true,
+    "chrome-devtools-mcp@claude-plugins-official": true,
+    "security-guidance@anthropic-plugin-directory": true,
+    "pyright-lsp@claude-plugins-official": true,
+    "stripe@anthropic-plugin-directory": true,
+    "agent-sdk-dev@anthropic-plugin-directory": true,
+    "huggingface-skills@anthropic-plugin-directory": true,
+    "discord@anthropic-plugin-directory": true,
+    "clangd-lsp@claude-plugins-official": true,
+    "cloudflare@claude-plugins-official": true,
+    "pydantic-ai@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "openai-codex": {
+      "source": {
+        "source": "github",
+        "repo": "openai/codex-plugin-cc"
+      }
+    },
+    "ecc": {
+      "source": {
+        "source": "github",
+        "repo": "affaan-m/everything-claude-code"
+      }
+    },
+    "typesafe-ai": {
+      "source": {
+        "source": "github",
+        "repo": "typesafe-ai/skills"
+      }
+    }
+  },
+  "modelSettings": {
+    "claude-opus-5-5": {
+      "effortLevel": "high"
+    }
+  },
+  "autoUpdatesChannel": "latest",
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "dark",
+  "editorMode": "normal",
+  "remoteControlAtStartup": true,
+  "agentPushNotifEnabled": true
+}
+WireGuard adapters:
+Route to 192.168.0.6 right now: 192.168.0.0/24 via 0.0.0.0 on Ethernet
+
+=== 6. Read-only G7 inventory (asks for the sudo password of buttmud) ===
+[sudo] password for buttmud:
+inventory-exit=0
+Connection to 192.168.0.6 closed.
+G7 inventory saved: D:\TaxGlasses-ops\g7-inventory.txt
+
+=== 7. ci-remote.ps1 for 4949462d9fe7d469d83974d3d642cfb3bb081c6e from a separate worktree ===
+git : Preparing worktree (new branch 'ci-verify-4949462d')
+At C:\Users\skip\Downloads\TaxGlasses-Claude-Setup.ps1:145 char:11
++     Run { git -C $Repo worktree add -b $Branch $Wt $Sha }
++           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Preparing workt...rify-4949462d'):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+Preparing worktree (new branch 'ci-verify-4949462d')
+HEAD is now at 4949462d fix(ci): G7 is 192.168.0.6 for Git and Jenkins at home and away
+worktree HEAD 4949462d9fe7d469d83974d3d642cfb3bb081c6e (requested 4949462d9fe7d469d83974d3d642cfb3bb081c6e)
+Checking Jenkins connection at http://192.168.0.6:8080/...
+Authenticated as: buttmud
+Authorities:
+  authenticated
+Pushing 4949462d9fe7d469d83974d3d642cfb3bb081c6e to G7 branch ci-verify-4949462d...
+powershell.exe : To ssh://192.168.0.6:3333/srv/git/repos/TaxGlasses.git
+At C:\Users\skip\Downloads\TaxGlasses-Claude-Setup.ps1:150 char:11
++     Run { powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Jo ...
++           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (To ssh://192.16.../TaxGlasses.git:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+To ssh://192.168.0.6:3333/srv/git/repos/TaxGlasses.git
+ * [new branch]        4949462d9fe7d469d83974d3d642cfb3bb081c6e -> ci-verify-4949462d
+ * [new branch]        4949462d9fe7d469d83974d3d642cfb3bb081c6e -> ci-verify-4949462d
+Running TaxGlasses-CI for 4949462d9fe7d469d83974d3d642cfb3bb081c6e...
+Started TaxGlasses-CI #11
+Started from command line by buttmud
+[Pipeline] Start of Pipeline
+[Pipeline] node
+Running on g7-worker in /var/lib/jenkins-agent/workspace/TaxGlasses-CI
+[Pipeline] {
+[Pipeline] timeout
+Timeout set to expire in 20 min
+[Pipeline] {
+[Pipeline] stage
+[Pipeline] { (Checkout local Git)
+[Pipeline] script
+[Pipeline] {
+[Pipeline] }
+[Pipeline] // script
+[Pipeline] deleteDir
+[Pipeline] sh
++ export GIT_SSH_COMMAND=ssh -o BatchMode=yes -o StrictHostKeyChecking=yes
++ git clone --no-checkout ssh://git@127.0.0.1:3333/srv/git/repos/TaxGlasses.git .
+Cloning into '.'...
++ git checkout --detach 4949462d9fe7d469d83974d3d642cfb3bb081c6e
+HEAD is now at 4949462 fix(ci): G7 is 192.168.0.6 for Git and Jenkins at home and away
++ git rev-parse HEAD
++ test 4949462d9fe7d469d83974d3d642cfb3bb081c6e = 4949462d9fe7d469d83974d3d642cfb3bb081c6e
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Install dependencies)
+[Pipeline] sh
++ npm ci
+
+added 52 packages, and audited 53 packages in 1s
+
+13 packages are looking for funding
+  run `npm fund` for details
+
+8 vulnerabilities (3 moderate, 3 high, 2 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Typecheck and tests)
+[Pipeline] sh
++ npm run verify
+
+> tax-projection-pilot@0.1.0 verify
+> npm run typecheck && npm run test
+
+
+> tax-projection-pilot@0.1.0 typecheck
+> tsc --noEmit
+
+
+> tax-projection-pilot@0.1.0 test
+> vitest run
+
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90m/var/lib/jenkins-agent/workspace/TaxGlasses-CI[39m
+
+ [32mΓ£ô[39m tests/utah.test.ts [2m([22m[2m143 tests[22m[2m)[22m[33m 2233[2mms[22m[39m
+ [32mΓ£ô[39m tests/california.test.ts [2m([22m[2m161 tests[22m[2m)[22m[33m 2222[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Q22: a California nonresident's credit asks General Information D and column E[2m > [22mreads a capital loss on line 8 at what the state of residence's AGI holds of it [33m351[2mms[22m[39m
+ [32mΓ£ô[39m tests/connecticut.test.ts [2m([22m[2m183 tests[22m[2m)[22m[33m 3806[2mms[22m[39m
+ [32mΓ£ô[39m tests/north-dakota.test.ts [2m([22m[2m104 tests[22m[2m)[22m[33m 4509[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m North Dakota Schedule ND-1NR: $50,000 more of each income kind for a nonresident and a part-year resident[2m > [22mmoves a part-year resident's tax by everything of the months of residence and North Dakota's of the other months [33m513[2mms[22m[39m
+ [32mΓ£ô[39m tests/kansas.test.ts [2m([22m[2m169 tests[22m[2m)[22m[33m 4651[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m line 8: the published 2025 tax table, reproduced cell by cell[2m > [22mevery single and joint cell is the rule's tax at both ends of its band [33m314[2mms[22m[39m
+ [32mΓ£ô[39m tests/rhode-island.test.ts [2m([22m[2m127 tests[22m[2m)[22m[33m 5396[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Rhode Island line 8: the 2025 tax table, every row reproduced from the rate schedule[2m > [22mreproduces all 2,000 rows, $0 to $100,000 in $50 bands, from the rule data [33m438[2mms[22m[39m
+ [32mΓ£ô[39m tests/nebraska.test.ts [2m([22m[2m137 tests[22m[2m)[22m[33m 5743[2mms[22m[39m
+ [32mΓ£ô[39m tests/maine.test.ts [2m([22m[2m141 tests[22m[2m)[22m[33m 5987[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Maine line 20: the tax table, every row reproduced from the rate schedules[2m > [22mreproduces all 1,000 rows of the 2025 table in every column from the printed bases, at each band's midpoint [33m303[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Maine Schedule NR: the guidance's worked example[2m > [22mthe Smiths through the projection, the U.S. bonds not identified [33m410[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Maine: the landing review's defects, each pinned[2m > [22ma part-year resident's line 4b takes each of a two-return state's returns apart (lesson D154) [33m376[2mms[22m[39m
+ [32mΓ£ô[39m tests/hawaii.test.ts [2m([22m[2m174 tests[22m[2m)[22m[33m 7080[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Hawaii line 27: the Tax Table is the law below $100,000, every row reproduced from HRS 235-51[2m > [22mreproduces all 2,000 rows of each column of the 2025 table at the row's midpoint, rounded half up [33m611[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Hawaii: the landing review's fixes, each failing before its fix[2m > [22mForm N-15 line 5 cuts a state's tax with no list to its tax on the records Hawaii sources there [33m386[2mms[22m[39m
+ [32mΓ£ô[39m tests/ui.test.ts [2m([22m[2m347 tests[22m[2m)[22m[33m 8050[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the form exercises North Carolina[2m > [22mevery generated preset is accepted by the real engine [33m1084[2mms[22m[39m
+ [32mΓ£ô[39m tests/new-mexico.test.ts [2m([22m[2m86 tests[22m[2m)[22m[33m 2500[2mms[22m[39m
+ [32mΓ£ô[39m tests/minnesota.test.ts [2m([22m[2m94 tests[22m[2m)[22m[33m 1126[2mms[22m[39m
+ [32mΓ£ô[39m tests/declared-gap-is-disclosed.test.ts [2m([22m[2m7 tests[22m[2m)[22m[90m 43[2mms[22m[39m
+ [32mΓ£ô[39m tests/delaware.test.ts [2m([22m[2m106 tests[22m[2m)[22m[33m 4858[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Delaware Form PIT-NON: the copies of Form PIT-RES's lines[2m > [22mputs a credited state's line 45 on the form of the spouse whose income it taxed [33m354[2mms[22m[39m
+ [32mΓ£ô[39m tests/arkansas.test.ts [2m([22m[2m179 tests[22m[2m)[22m[33m 10166[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Filing Status 4, each spouse in a column of their own[2m > [22mwhere the input cannot divide the return, the joint return stands with the most Filing Status 4 could save [33m533[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m AR1000TC line 2, the other state tax credit (26-51-504)[2m > [22magainst every other landed state: the smaller of its tax and the limit, and no reverse credit [33m1275[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m every other state's resident with Arkansas wages: Arkansas's AR1000NR figure, credited[2m > [22mevery landed state [33m553[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the Jev screen: 26-51-501(a)(3) and 26-51-415 adopt the Internal Revenue Code as they say[2m > [22ma $900,000 acquisition debt's interest is deductible whole: the screen's joint return, 2026 and 2025 [33m2093[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the Jev screen: 26-51-501(a)(3) and 26-51-415 adopt the Internal Revenue Code as they say[2m > [22ma balance over $1,000,000 prorates the interest at $1,000,000 [33m678[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the Jev screen: 26-51-501(a)(3) and 26-51-415 adopt the Internal Revenue Code as they say[2m > [22mevery path takes the one schedule: Filing Status 4, and Form AR1000NR's columns A and B [33m379[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the Jev screen: 26-51-501(a)(3) and 26-51-415 adopt the Internal Revenue Code as they say[2m > [22mhome equity interest, which Arkansas's Code allows and no input carries, is named wherever Form AR3 is taken [33m354[2mms[22m[39m
+ [32mΓ£ô[39m tests/iowa.test.ts [2m([22m[2m99 tests[22m[2m)[22m[33m 2870[2mms[22m[39m
+ [32mΓ£ô[39m tests/kentucky.test.ts [2m([22m[2m156 tests[22m[2m)[22m[33m 2368[2mms[22m[39m
+ [32mΓ£ô[39m tests/mississippi.test.ts [2m([22m[2m101 tests[22m[2m)[22m[33m 2308[2mms[22m[39m
+ [32mΓ£ô[39m tests/new-hampshire.test.ts [2m([22m[2m96 tests[22m[2m)[22m[33m 1132[2mms[22m[39m
+ [32mΓ£ô[39m tests/arizona.test.ts [2m([22m[2m87 tests[22m[2m)[22m[33m 654[2mms[22m[39m
+ [32mΓ£ô[39m tests/louisiana.test.ts [2m([22m[2m119 tests[22m[2m)[22m[33m 1681[2mms[22m[39m
+ [32mΓ£ô[39m tests/missouri.test.ts [2m([22m[2m106 tests[22m[2m)[22m[33m 1349[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Missouri: what the Chapter 1 liability is made of[2m > [22mTHE $5,000 CAP CANNOT BIND ON ANY RETURN THIS PILOT CAN BUILD [33m399[2mms[22m[39m
+ [32mΓ£ô[39m tests/vermont.test.ts [2m([22m[2m96 tests[22m[2m)[22m[33m 4895[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Vermont line 8: the department's 2025 tax table, every cell reproduced from the rule data[2m > [22mreproduces all 750 rows in every filing status (3,000 cells) [33m333[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Vermont: the landing review's fixes[2m > [22mholds seven states' lines 2 to line 1 in every order without throwing [33m909[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Vermont: the landing review's fixes[2m > [22msays where more than ten schedules' orders were not all tried [33m448[2mms[22m[39m
+ [32mΓ£ô[39m tests/oregon.test.ts [2m([22m[2m121 tests[22m[2m)[22m[33m 2274[2mms[22m[39m
+ [32mΓ£ô[39m tests/reciprocal-wages-reported.test.ts [2m([22m[2m152 tests[22m[2m)[22m[33m 2379[2mms[22m[39m
+ [32mΓ£ô[39m tests/district-of-columbia.test.ts [2m([22m[2m86 tests[22m[2m)[22m[33m 3508[2mms[22m[39m
+ [32mΓ£ô[39m tests/montana.test.ts [2m([22m[2m162 tests[22m[2m)[22m[33m 1801[2mms[22m[39m
+ [32mΓ£ô[39m tests/west-virginia.test.ts [2m([22m[2m84 tests[22m[2m)[22m[33m 7299[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m line 8: the 2025 rate schedules, and the Tax Table reproduced row by row[2m > [22mevery row is Rate Schedule I at the row's midpoint, rounded half up once, from the rule data [33m406[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m line 8: the 2025 rate schedules, and the Tax Table reproduced row by row[2m > [22mthe most the table differs from the schedule is $2 each way, in 2025 and on a 2026 table built the same way [33m3484[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-virginia-by-record.test.ts [2m([22m[2m249 tests[22m[2m)[22m[33m 3816[2mms[22m[39m
+ [32mΓ£ô[39m tests/new-jersey.test.ts [2m([22m[2m94 tests[22m[2m)[22m[33m 868[2mms[22m[39m
+ [32mΓ£ô[39m tests/massachusetts.test.ts [2m([22m[2m94 tests[22m[2m)[22m[33m 1028[2mms[22m[39m
+ [32mΓ£ô[39m tests/colorado.test.ts [2m([22m[2m82 tests[22m[2m)[22m[33m 828[2mms[22m[39m
+ [32mΓ£ô[39m tests/q28-california-depreciation.test.ts [2m([22m[2m27 tests[22m[2m)[22m[33m 1953[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Q28, Codex round 94: a rental leased to a business the taxpayer does not materially participate in[2m > [22mmoves column E, the second pass and every credit reading California's tax [33m401[2mms[22m[39m
+ [32mΓ£ô[39m tests/idaho.test.ts [2m([22m[2m116 tests[22m[2m)[22m[33m 1526[2mms[22m[39m
+ [32mΓ£ô[39m tests/split-return.test.ts [2m([22m[2m94 tests[22m[2m)[22m[33m 754[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-minnesota-by-record.test.ts [2m([22m[2m160 tests[22m[2m)[22m[33m 2588[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-arizona-by-record.test.ts [2m([22m[2m151 tests[22m[2m)[22m[33m 2691[2mms[22m[39m
+ [32mΓ£ô[39m tests/capital-columns.test.ts [2m([22m[2m226 tests[22m[2m)[22m[33m 3617[2mms[22m[39m
+ [32mΓ£ô[39m tests/q20-own-passive-figures.test.ts [2m([22m[2m384 tests[22m[2m)[22m[33m 4345[2mms[22m[39m
+ [32mΓ£ô[39m tests/alabama.test.ts [2m([22m[2m87 tests[22m[2m)[22m[33m 1251[2mms[22m[39m
+ [32mΓ£ô[39m tests/north-carolina.test.ts [2m([22m[2m71 tests[22m[2m)[22m[33m 614[2mms[22m[39m
+ [32mΓ£ô[39m tests/maryland.test.ts [2m([22m[2m81 tests[22m[2m)[22m[33m 1110[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-new-york-by-record.test.ts [2m([22m[2m197 tests[22m[2m)[22m[33m 3017[2mms[22m[39m
+ [32mΓ£ô[39m tests/illinois.test.ts [2m([22m[2m75 tests[22m[2m)[22m[33m 645[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-indiana-by-record.test.ts [2m([22m[2m102 tests[22m[2m)[22m[33m 2019[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-washington-excise-by-gain.test.ts [2m([22m[2m109 tests[22m[2m)[22m[33m 1143[2mms[22m[39m
+ [32mΓ£ô[39m tests/oklahoma.test.ts [2m([22m[2m148 tests[22m[2m)[22m[33m 2031[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m line 14: the published 2025 tax table, reproduced cell by cell[2m > [22mevery single and joint cell is the rule's tax at both ends of its band [33m678[2mms[22m[39m
+ [32mΓ£ô[39m tests/virginia.test.ts [2m([22m[2m87 tests[22m[2m)[22m[33m 939[2mms[22m[39m
+ [32mΓ£ô[39m tests/nevada.test.ts [2m([22m[2m150 tests[22m[2m)[22m[33m 1441[2mms[22m[39m
+ [32mΓ£ô[39m tests/michigan.test.ts [2m([22m[2m80 tests[22m[2m)[22m[33m 860[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-missouri-by-record.test.ts [2m([22m[2m151 tests[22m[2m)[22m[33m 2129[2mms[22m[39m
+ [32mΓ£ô[39m tests/washington.test.ts [2m([22m[2m79 tests[22m[2m)[22m[33m 584[2mms[22m[39m
+ [32mΓ£ô[39m tests/quote-check.test.ts [2m([22m[2m81 tests[22m[2m)[22m[33m 762[2mms[22m[39m
+ [32mΓ£ô[39m tests/indiana.test.ts [2m([22m[2m72 tests[22m[2m)[22m[33m 848[2mms[22m[39m
+ [32mΓ£ô[39m tests/rule-drift.test.ts [2m([22m[2m74 tests[22m[2m)[22m[33m 760[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the cited sources[2m > [22mevery committed rule and every lever rule cites at least one http(s) URL with an ISO retrieval date [33m462[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-georgia-by-record.test.ts [2m([22m[2m104 tests[22m[2m)[22m[33m 2232[2mms[22m[39m
+ [32mΓ£ô[39m tests/georgia.test.ts [2m([22m[2m54 tests[22m[2m)[22m[33m 571[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-michigan-by-record.test.ts [2m([22m[2m111 tests[22m[2m)[22m[33m 1940[2mms[22m[39m
+ [32mΓ£ô[39m tests/new-york.test.ts [2m([22m[2m56 tests[22m[2m)[22m[33m 957[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-michigan-line-18.test.ts [2m([22m[2m88 tests[22m[2m)[22m[33m 1310[2mms[22m[39m
+ [32mΓ£ô[39m tests/ledger.test.ts [2m([22m[2m52 tests[22m[2m)[22m[33m 579[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-massachusetts-line-8.test.ts [2m([22m[2m57 tests[22m[2m)[22m[33m 1163[2mms[22m[39m
+ [32mΓ£ô[39m tests/tennessee.test.ts [2m([22m[2m39 tests[22m[2m)[22m[33m 360[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-new-jersey-local-tax-base.test.ts [2m([22m[2m59 tests[22m[2m)[22m[33m 1929[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-north-carolina-by-record.test.ts [2m([22m[2m88 tests[22m[2m)[22m[33m 1643[2mms[22m[39m
+ [32mΓ£ô[39m tests/pennsylvania.test.ts [2m([22m[2m53 tests[22m[2m)[22m[33m 878[2mms[22m[39m
+ [32mΓ£ô[39m tests/reverse-credit.test.ts [2m([22m[2m27 tests[22m[2m)[22m[33m 1432[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-attribution.test.ts [2m([22m[2m36 tests[22m[2m)[22m[33m 325[2mms[22m[39m
+ [32mΓ£ô[39m tests/business-mode.test.ts [2m([22m[2m73 tests[22m[2m)[22m[33m 734[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-virginia-schedule-osc.test.ts [2m([22m[2m40 tests[22m[2m)[22m[33m 848[2mms[22m[39m
+ [32mΓ£ô[39m tests/wisconsin.test.ts [2m([22m[2m42 tests[22m[2m)[22m[33m 620[2mms[22m[39m
+ [32mΓ£ô[39m tests/ohio.test.ts [2m([22m[2m39 tests[22m[2m)[22m[33m 628[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-illinois-by-record.test.ts [2m([22m[2m59 tests[22m[2m)[22m[33m 1384[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Q19 (g), (h): Illinois reports its tax by the record it fell on[2m > [22mleaves the readers that do not reach the gain, and every proration state, where they were [33m333[2mms[22m[39m
+ [32mΓ£ô[39m tests/q4-ny-it182-followup.test.ts [2m([22m[2m75 tests[22m[2m)[22m[33m 1595[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m a state crediting Massachusetts tax says what its figure is on the other reading[2m > [22monly a crediting state whose figure moves with the reading says so [33m311[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-colorado-by-record.test.ts [2m([22m[2m73 tests[22m[2m)[22m[33m 1419[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Q19 (g), (h): Colorado reports its tax by the record it fell on[2m > [22mleaves the readers that do not reach the gain, and every proration state, where they were [33m324[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-ohio-by-record.test.ts [2m([22m[2m70 tests[22m[2m)[22m[33m 1630[2mms[22m[39m
+ [32mΓ£ô[39m tests/credit-relief-or-disclosure.test.ts [2m([22m[2m36 tests[22m[2m)[22m[33m 6711[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m gate 1: a denied credit is relieved or disclosed, never silent[2m > [22mevery home state either credits the other state's tax or names what it denied [33m5564[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m gate 1, Q11: a credit for a state that computed nothing is disclosed[2m > [22mevery income-tax home state refuses too, or says no credit was taken and names the income [33m434[2mms[22m[39m
+ [32mΓ£ô[39m tests/part-year.test.ts [2m([22m[2m66 tests[22m[2m)[22m[90m 154[2mms[22m[39m
+ [32mΓ£ô[39m tests/q8-netted-categories.test.ts [2m([22m[2m37 tests[22m[2m)[22m[33m 857[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-proration-share.test.ts [2m([22m[2m64 tests[22m[2m)[22m[33m 1167[2mms[22m[39m
+ [32mΓ£ô[39m tests/south-carolina.test.ts [2m([22m[2m31 tests[22m[2m)[22m[33m 944[2mms[22m[39m
+ [32mΓ£ô[39m tests/nonresident-intangibles.test.ts [2m([22m[2m49 tests[22m[2m)[22m[33m 3821[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m no state taxes a nonresident's publicly traded security gain[2m > [22mis zero in every implemented state, not just the ten that were wrong [33m574[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Q21: a 530A distribution and a mover's intangibles follow the owner, not the tag[2m > [22mno state keeps a part-year resident's interest received after the move by its tag (2025) [33m881[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Q21: a 530A distribution and a mover's intangibles follow the owner, not the tag[2m > [22mno state keeps a part-year resident's dividends received after the move by its tag (2025) [33m540[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Q21: a 530A distribution and a mover's intangibles follow the owner, not the tag[2m > [22mno state keeps a part-year resident's trumpAccountDistributions received after the move by its tag (2026) [33m476[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-indiana-line-5.test.ts [2m([22m[2m62 tests[22m[2m)[22m[33m 1256[2mms[22m[39m
+ [32mΓ£ô[39m tests/q26-bond-interest-outside-the-months.test.ts [2m([22m[2m126 tests[22m[2m)[22m[33m 1939[2mms[22m[39m
+ [32mΓ£ô[39m tests/rental-depreciation.test.ts [2m([22m[2m36 tests[22m[2m)[22m[33m 418[2mms[22m[39m
+ [32mΓ£ô[39m tests/ultra-fed.test.ts [2m([22m[2m46 tests[22m[2m)[22m[33m 429[2mms[22m[39m
+ [32mΓ£ô[39m tests/federal-core.test.ts [2m([22m[2m52 tests[22m[2m)[22m[33m 364[2mms[22m[39m
+ [32mΓ£ô[39m tests/dependent-care-credit.test.ts [2m([22m[2m45 tests[22m[2m)[22m[33m 383[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-massachusetts-by-record.test.ts [2m([22m[2m15 tests[22m[2m)[22m[33m 530[2mms[22m[39m
+ [32mΓ£ô[39m tests/ultra-ga.test.ts [2m([22m[2m45 tests[22m[2m)[22m[33m 596[2mms[22m[39m
+ [32mΓ£ô[39m tests/q27-indiana-line-b-ignored-income.test.ts [2m([22m[2m104 tests[22m[2m)[22m[33m 1394[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-california-by-record.test.ts [2m([22m[2m53 tests[22m[2m)[22m[33m 1165[2mms[22m[39m
+ [32mΓ£ô[39m tests/review-fixes.test.ts [2m([22m[2m44 tests[22m[2m)[22m[33m 805[2mms[22m[39m
+ [32mΓ£ô[39m tests/k1-classification.test.ts [2m([22m[2m39 tests[22m[2m)[22m[33m 402[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-ohio-column-b.test.ts [2m([22m[2m36 tests[22m[2m)[22m[33m 777[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-maryland-by-record.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 533[2mms[22m[39m
+ [32mΓ£ô[39m tests/partnership-k1.test.ts [2m([22m[2m30 tests[22m[2m)[22m[33m 376[2mms[22m[39m
+ [32mΓ£ô[39m tests/passive.test.ts [2m([22m[2m34 tests[22m[2m)[22m[33m 390[2mms[22m[39m
+ [32mΓ£ô[39m tests/ultra-misc.test.ts [2m([22m[2m38 tests[22m[2m)[22m[33m 758[2mms[22m[39m
+ [32mΓ£ô[39m tests/q4-az-1022-22.test.ts [2m([22m[2m19 tests[22m[2m)[22m[33m 722[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-own-credit-pass.test.ts [2m([22m[2m166 tests[22m[2m)[22m[33m 2517[2mms[22m[39m
+ [32mΓ£ô[39m tests/macrs.test.ts [2m([22m[2m83 tests[22m[2m)[22m[90m 249[2mms[22m[39m
+ [32mΓ£ô[39m tests/b7-allocated-taxable-income.test.ts [2m([22m[2m64 tests[22m[2m)[22m[33m 1161[2mms[22m[39m
+ [32mΓ£ô[39m tests/hsa-monthly.test.ts [2m([22m[2m33 tests[22m[2m)[22m[90m 280[2mms[22m[39m
+ [32mΓ£ô[39m tests/qbi.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 311[2mms[22m[39m
+ [32mΓ£ô[39m tests/q4-mo-line-t-records.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 831[2mms[22m[39m
+ [32mΓ£ô[39m tests/ultra-ui.test.ts [2m([22m[2m25 tests[22m[2m)[22m[33m 1120[2mms[22m[39m
+ [32mΓ£ô[39m tests/q24-missouri-stated-return.test.ts [2m([22m[2m37 tests[22m[2m)[22m[33m 1389[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m Q24: a credit reads the return Missouri states, not pass 1's[2m > [22mmoves every reader of the reader crediting x too, each toward the tax Missouri states [33m343[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-illinois-line-51.test.ts [2m([22m[2m29 tests[22m[2m)[22m[33m 773[2mms[22m[39m
+ [32mΓ£ô[39m tests/output-contract.test.ts [2m([22m[2m605 tests[22m[2m)[22m[33m 34186[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the income tax a state reports by record is the tax it charged[2m > [22mDE reports its tax by record on every pass-1 cell it computes, and every list holds [33m326[2mms[22m[39m
+ [32mΓ£ô[39m tests/disposition.test.ts [2m([22m[2m33 tests[22m[2m)[22m[33m 311[2mms[22m[39m
+ [32mΓ£ô[39m tests/coverage-matrix.test.ts [2m([22m[2m17 tests[22m[2m)[22m[90m 85[2mms[22m[39m
+ [32mΓ£ô[39m tests/ira-phaseout.test.ts [2m([22m[2m28 tests[22m[2m)[22m[33m 436[2mms[22m[39m
+ [32mΓ£ô[39m tests/filing-status.test.ts [2m([22m[2m29 tests[22m[2m)[22m[33m 911[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m a state that has not sourced a filing status refuses it by name[2m > [22mrefuses head_of_household in every state whose rule data lacks it, and says it is unsourced [33m544[2mms[22m[39m
+ [32mΓ£ô[39m tests/pdf-text.test.ts [2m([22m[2m50 tests[22m[2m)[22m[33m 17295[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text objects[2m > [22mdoes not read a marked-content property list as text [33m327[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text objects[2m > [22mstill reads ordinary text, in both string forms [33m343[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text objects[2m > [22mskips a string outside a text object rather than scanning through it [33m312[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text objects[2m > [22mdrops what was pending when a text object opens [33m322[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text objects[2m > [22mskips a dictionary INSIDE a text object, where no other guard can help [33m301[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text objects[2m > [22mskips a non-text string that no later text object would clear [33m342[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text objects[2m > [22mdoes not read the binary data of an inline image as operators [33m318[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text objects[2m > [22mdoes not read a comment as text [33m388[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text objects[2m > [22mclears the buffer at BT when a text object was left unterminated [33m468[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m graphics state[2m > [22mdecodes text after Q through the font that was current before q [33m437[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m graphics state[2m > [22mdoes not read a name spelled Q as the restore operator [33m370[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mdecides a Td by where it lands: the next piece starts where the last ended [33m333[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mdecides a Td by where it lands: a kern of 0.15 em, the pieces overlapping [33m362[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mdecides a Td by where it lands: letter-spacing of 0.13 em [33m307[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mdecides a Td by where it lands: a move back of 0.25 em, past any kern [33m320[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mdecides a Td by where it lands: a move to the next line [33m323[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mdecides a Td by where it lands: a superscript raised 0.35 em [33m369[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mjoins the pieces of a word the producer places one TD at a time [33m380[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mdoes not double a space the text already carries [33m372[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mmeasures the run as it was drawn: the pen is advanced by the numbers inside a TJ array [33m346[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mmeasures the run as it was drawn: character spacing widens every glyph [33m332[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mmeasures the run as it was drawn: word spacing widens only the space [33m326[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mmeasures the run as it was drawn: horizontal scaling narrows every glyph [33m384[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mmeasures after Q in the size that was current before q [33m347[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mdecides a Tm by where it lands: a move to the next line [33m320[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mdecides a Tm by where it lands: a word gap on the same line [33m318[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mdecides a Tm by where it lands: the same gap with the size set by the matrix [33m310[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mdecides a Tm by where it lands: a kern with the size set by the matrix [33m354[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mdecides a Tm by where it lands: a superscript with the size set by the matrix [33m353[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mdecides a Tm by where it lands: a superscript raised 0.35 em [33m423[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mdoes not read a marked-content tag named /TD as the TD operator [33m400[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m text positioning[2m > [22mmeasures the next glyph from the last one that was not blank [33m323[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m page contents[2m > [22mfollows /Contents to an ARRAY of streams named indirectly, not only to a stream [33m332[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m page contents[2m > [22mdoes not read an ordinary dictionary's brackets as a contents array [33m302[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m incremental updates[2m > [22mreads the LAST definition of an object, which is the update, not the original [33m345[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m stream extent[2m > [22mkeeps a compressed stream's last byte when it is a line feed [33m355[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m stream extent[2m > [22mkeeps a compressed stream's last byte when it is a carriage return [33m353[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m stream extent[2m > [22mtrusts a direct /Length when no end-of-line marker precedes endstream [33m317[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m stream extent[2m > [22mlooks up an indirect /Length, the only thing that can read a CR before a lone LF [33m365[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m stream extent[2m > [22mremoves exactly one end-of-line marker when no /Length can be read [33m386[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m stream extent[2m > [22msets aside a /Length that stops short of the data [33m390[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m stream extent[2m > [22mdoes not follow a /Length that runs past endstream into the next object [33m323[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m stream extent[2m > [22mreads an encrypted stream whose ciphertext ends in a line feed [33m403[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the /V 4 AESV2 handler[2m > [22mreads a file locked with an empty user password, each stream under its own key [33m330[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the /V 4 AESV2 handler[2m > [22mrefuses a file whose /U does not prove the password empty, instead of decrypting it into noise [33m356[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the /V 4 AESV2 handler[2m > [22mstill names and refuses the RC4 handler [33m364[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-negative-other-state-tax.test.ts [2m([22m[2m46 tests[22m[2m)[22m[33m 1426[2mms[22m[39m
+ [32mΓ£ô[39m tests/q2-local-taxes.test.ts [2m([22m[2m44 tests[22m[2m)[22m[33m 794[2mms[22m[39m
+ [32mΓ£ô[39m tests/short-term-rental.test.ts [2m([22m[2m38 tests[22m[2m)[22m[33m 438[2mms[22m[39m
+ [32mΓ£ô[39m tests/scenarios.test.ts [2m([22m[2m37 tests[22m[2m)[22m[90m 136[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-michigan-tips-overtime.test.ts [2m([22m[2m37 tests[22m[2m)[22m[33m 948[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-maryland-line-15.test.ts [2m([22m[2m25 tests[22m[2m)[22m[33m 773[2mms[22m[39m
+ [32mΓ£ô[39m tests/ultra-mi.test.ts [2m([22m[2m35 tests[22m[2m)[22m[33m 609[2mms[22m[39m
+ [32mΓ£ô[39m tests/vehicle-loan-interest.test.ts [2m([22m[2m36 tests[22m[2m)[22m[90m 295[2mms[22m[39m
+ [32mΓ£ô[39m tests/strategy.test.ts [2m([22m[2m33 tests[22m[2m)[22m[33m 4085[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m statutory limits[2m > [22mnever proposes a value above the lever's ceiling [33m460[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m objectives[2m > [22moptimises interacting levers jointly rather than one at a time [33m306[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m objectives[2m > [22mscores the cash cost of every suggestion, never the tax saving alone [33m320[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m nothing is omitted silently[2m > [22mskips the deduction election when it is already `optimal` [33m339[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m nothing is omitted silently[2m > [22moffers the deduction election when the taxpayer pinned the worse one [33m673[2mms[22m[39m
+ [32mΓ£ô[39m tests/decoupling-column.test.ts [2m([22m[2m38 tests[22m[2m)[22m[33m 1112[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-georgia-line-8.test.ts [2m([22m[2m22 tests[22m[2m)[22m[33m 604[2mms[22m[39m
+ [32mΓ£ô[39m tests/q4-ny-it182.test.ts [2m([22m[2m31 tests[22m[2m)[22m[33m 997[2mms[22m[39m
+ [32mΓ£ô[39m tests/state-pro-forma-8582.test.ts [2m([22m[2m19 tests[22m[2m)[22m[33m 402[2mms[22m[39m
+ [32mΓ£ô[39m tests/r100-fed.test.ts [2m([22m[2m28 tests[22m[2m)[22m[33m 428[2mms[22m[39m
+ [32mΓ£ô[39m tests/charitable.test.ts [2m([22m[2m28 tests[22m[2m)[22m[90m 125[2mms[22m[39m
+ [32mΓ£ô[39m tests/closed-world.test.ts [2m([22m[2m43 tests[22m[2m)[22m[33m 380[2mms[22m[39m
+ [32mΓ£ô[39m tests/ultra-md.test.ts [2m([22m[2m29 tests[22m[2m)[22m[33m 513[2mms[22m[39m
+ [32mΓ£ô[39m tests/r98-fed.test.ts [2m([22m[2m34 tests[22m[2m)[22m[33m 373[2mms[22m[39m
+ [32mΓ£ô[39m tests/hsa-family-limit.test.ts [2m([22m[2m23 tests[22m[2m)[22m[90m 145[2mms[22m[39m
+ [32mΓ£ô[39m tests/rung-1c.test.ts [2m([22m[2m23 tests[22m[2m)[22m[33m 435[2mms[22m[39m
+ [32mΓ£ô[39m tests/other-state-credit.test.ts [2m([22m[2m25 tests[22m[2m)[22m[90m 276[2mms[22m[39m
+ [32mΓ£ô[39m tests/rental-sourcing.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 349[2mms[22m[39m
+ [32mΓ£ô[39m tests/r99-b7.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 379[2mms[22m[39m
+ [32mΓ£ô[39m tests/self-rental.test.ts [2m([22m[2m19 tests[22m[2m)[22m[33m 340[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-printed-proration.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 485[2mms[22m[39m
+ [32mΓ£ô[39m tests/declared-modeling-bites.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 1194[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m gate 3: a declaration that something is modeled must bite[2m > [22mturning each claim OFF changes the return [33m1151[2mms[22m[39m
+ [32mΓ£ô[39m tests/casualty-loss.test.ts [2m([22m[2m26 tests[22m[2m)[22m[90m 249[2mms[22m[39m
+ [32mΓ£ô[39m tests/ultra-va.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 464[2mms[22m[39m
+ [32mΓ£ô[39m tests/q4-md-2pct.test.ts [2m([22m[2m23 tests[22m[2m)[22m[33m 838[2mms[22m[39m
+ [32mΓ£ô[39m tests/wisconsin-published-tables.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 545[2mms[22m[39m
+ [32mΓ£ô[39m tests/community-property.test.ts [2m([22m[2m51 tests[22m[2m)[22m[90m 79[2mms[22m[39m
+ [32mΓ£ô[39m tests/florida.test.ts [2m([22m[2m22 tests[22m[2m)[22m[90m 196[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-new-jersey-by-record.test.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 388[2mms[22m[39m
+ [32mΓ£ô[39m tests/dwelling-use.test.ts [2m([22m[2m21 tests[22m[2m)[22m[90m 230[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-new-york-line-24.test.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 447[2mms[22m[39m
+ [32mΓ£ô[39m tests/r99-ga.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 511[2mms[22m[39m
+ [32mΓ£ô[39m tests/grouping.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 332[2mms[22m[39m
+ [32mΓ£ô[39m tests/q4-mo-line-t.test.ts [2m([22m[2m19 tests[22m[2m)[22m[33m 540[2mms[22m[39m
+ [32mΓ£ô[39m tests/r98-md.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 497[2mms[22m[39m
+ [32mΓ£ô[39m tests/filing-status-grid.test.ts [2m([22m[2m15 tests[22m[2m)[22m[33m 2156[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the separate shape is a dimension of the search, not a footnote beside it[2m > [22mevaluates every lever combination under both shapes [33m365[2mms[22m[39m
+ [32mΓ£ô[39m tests/r98-ga.test.ts [2m([22m[2m19 tests[22m[2m)[22m[33m 380[2mms[22m[39m
+ [32mΓ£ô[39m tests/schedule-1a.test.ts [2m([22m[2m33 tests[22m[2m)[22m[90m 218[2mms[22m[39m
+ [32mΓ£ô[39m tests/advisory.test.ts [2m([22m[2m20 tests[22m[2m)[22m[90m 188[2mms[22m[39m
+ [32mΓ£ô[39m tests/r99-fed.test.ts [2m([22m[2m25 tests[22m[2m)[22m[90m 274[2mms[22m[39m
+ [32mΓ£ô[39m tests/decode-health.test.ts [2m([22m[2m15 tests[22m[2m)[22m[90m 74[2mms[22m[39m
+ [32mΓ£ô[39m tests/r98-ui.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 1646[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m r98 2: IRA candidates reach the ceiling the other levers open up[2m > [22mseparate, 7,000 IRA plus 4,300 HSA: 20,769, saving 2,983 [33m536[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m r98 2: IRA candidates reach the ceiling the other levers open up[2m > [22meach combination is screened against its own return's ceiling [33m457[2mms[22m[39m
+ [32mΓ£ô[39m tests/capital-loss-carryover.test.ts [2m([22m[2m18 tests[22m[2m)[22m[90m 267[2mms[22m[39m
+ [32mΓ£ô[39m tests/nonresident-no-source-income.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 1661[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m a nonresident with no income sourced to a state owes it nothing[2m > [22mevery state produces a figure, and it is zero, however the taxpayer deducted [33m392[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m a nonresident with no income sourced to a state owes it nothing[2m > [22mNO STATE'S TAX RISES AS ITS SHARE OF THE SAME INCOME FALLS [33m1027[2mms[22m[39m
+ [32mΓ£ô[39m tests/q30-partner-move.test.ts [2m([22m[2m27 tests[22m[2m)[22m[33m 751[2mms[22m[39m
+ [32mΓ£ô[39m tests/ui-attribution.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 936[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m a return built the way the form builds one reaches the comparison[2m > [22mcompares filing jointly against filing separately, end to end [33m580[2mms[22m[39m
+ [32mΓ£ô[39m tests/trump-account.test.ts [2m([22m[2m16 tests[22m[2m)[22m[90m 122[2mms[22m[39m
+ [32mΓ£ô[39m tests/r100-ca.test.ts [2m([22m[2m19 tests[22m[2m)[22m[33m 447[2mms[22m[39m
+ [32mΓ£ô[39m tests/quote-probe.test.ts [2m([22m[2m24 tests[22m[2m)[22m[90m 47[2mms[22m[39m
+ [32mΓ£ô[39m tests/zip-member.test.ts [2m([22m[2m15 tests[22m[2m)[22m[90m 97[2mms[22m[39m
+ [32mΓ£ô[39m tests/r100-ui.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 909[2mms[22m[39m
+ [32mΓ£ô[39m tests/section-168n.test.ts [2m([22m[2m15 tests[22m[2m)[22m[90m 197[2mms[22m[39m
+ [32mΓ£ô[39m tests/federal-refusal.test.ts [2m([22m[2m19 tests[22m[2m)[22m[33m 489[2mms[22m[39m
+ [32mΓ£ô[39m tests/ultra-ca.test.ts [2m([22m[2m19 tests[22m[2m)[22m[33m 402[2mms[22m[39m
+ [32mΓ£ô[39m tests/r99-ca.test.ts [2m([22m[2m15 tests[22m[2m)[22m[33m 472[2mms[22m[39m
+ [32mΓ£ô[39m tests/r99-ui.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 590[2mms[22m[39m
+ [32mΓ£ô[39m tests/minnesota-published-table.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 458[2mms[22m[39m
+ [32mΓ£ô[39m tests/q19-indiana-county-section-2.test.ts [2m([22m[2m21 tests[22m[2m)[22m[33m 670[2mms[22m[39m
+ [32mΓ£ô[39m tests/r100-mi.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 365[2mms[22m[39m
+ [32mΓ£ô[39m tests/amt-part-iii.test.ts [2m([22m[2m7 tests[22m[2m)[22m[90m 147[2mms[22m[39m
+ [32mΓ£ô[39m tests/r98-ca.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 380[2mms[22m[39m
+ [32mΓ£ô[39m tests/r99-md.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 394[2mms[22m[39m
+ [32mΓ£ô[39m tests/r98-mi.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 372[2mms[22m[39m
+ [32mΓ£ô[39m tests/year-over-year.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 1638[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m exit criterion 10: the year-over-year differential[2m > [22mevery jurisdiction passes for every consecutive pair of tax years [33m393[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m exit criterion 10: the year-over-year differential[2m > [22mcovers every rule in the later year, not a subset someone remembered [33m348[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m exit criterion 10: the year-over-year differential[2m > [22mreports counts that can be quoted without recounting by hand [33m598[2mms[22m[39m
+ [32mΓ£ô[39m tests/filing-status-comparison.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 907[2mms[22m[39m
+ [32mΓ£ô[39m tests/texas.test.ts [2m([22m[2m11 tests[22m[2m)[22m[90m 240[2mms[22m[39m
+ [32mΓ£ô[39m tests/anne-arundel-table.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 806[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the transcription is complete and is the statute at each band midpoint[2m > [22mdiffers from the schedule often enough to be worth carrying [33m564[2mms[22m[39m
+ [32mΓ£ô[39m tests/estimated-tax.test.ts [2m([22m[2m14 tests[22m[2m)[22m[90m 138[2mms[22m[39m
+ [32mΓ£ô[39m tests/schedule-se-per-person.test.ts [2m([22m[2m7 tests[22m[2m)[22m[90m 123[2mms[22m[39m
+ [32mΓ£ô[39m tests/r100-ga.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 319[2mms[22m[39m
+ [32mΓ£ô[39m tests/r100-nj.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 324[2mms[22m[39m
+ [32mΓ£ô[39m tests/reps-lever.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 2112[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the lever on a return that can use it[2m > [22mwins the tax objective by releasing the rental loss, at the gap, with no cash cost [33m463[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the lever on a return that can use it[2m > [22moffers the spouse's spec on a joint return, and skips it on a single one [33m665[2mms[22m[39m
+ [32mΓ£ô[39m tests/r99-mi.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 370[2mms[22m[39m
+ [32mΓ£ô[39m tests/r98-nj.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 217[2mms[22m[39m
+ [32mΓ£ô[39m tests/irc68.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 111[2mms[22m[39m
+ [32mΓ£ô[39m tests/nonitemizer-charitable.test.ts [2m([22m[2m7 tests[22m[2m)[22m[90m 106[2mms[22m[39m
+ [32mΓ£ô[39m tests/rule-integrity.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 342[2mms[22m[39m
+ [32mΓ£ô[39m tests/r99-nj.test.ts [2m([22m[2m8 tests[22m[2m)[22m[90m 267[2mms[22m[39m
+ [32mΓ£ô[39m tests/q3-refused-basis.test.ts [2m([22m[2m3 tests[22m[2m)[22m[90m 258[2mms[22m[39m
+ [32mΓ£ô[39m tests/report-components-sum.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 459[2mms[22m[39m
+ [32mΓ£ô[39m tests/negative-agi-floors.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 123[2mms[22m[39m
+ [32mΓ£ô[39m tests/entity-validation.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 29[2mms[22m[39m
+ [32mΓ£ô[39m tests/form-1040-line-11-whole-dollars.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 114[2mms[22m[39m
+ [32mΓ£ô[39m tests/zip-member-node20.test.ts [2m([22m[2m2 tests[22m[2m)[22m[90m 40[2mms[22m[39m
+ [32mΓ£ô[39m tests/r100-md.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 152[2mms[22m[39m
+ [32mΓ£ô[39m tests/business-tips-states.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 144[2mms[22m[39m
+ [32mΓ£ô[39m tests/prorate.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 149[2mms[22m[39m
+ [32mΓ£ô[39m tests/date-validation.test.ts [2m([22m[2m6 tests[22m[2m)[22m[90m 31[2mms[22m[39m
+ [32mΓ£ô[39m tests/combined-floor-parts.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 151[2mms[22m[39m
+ [32mΓ£ô[39m tests/state-withholding-contract.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 126[2mms[22m[39m
+ [32mΓ£ô[39m tests/money-format.test.ts [2m([22m[2m6 tests[22m[2m)[22m[90m 14[2mms[22m[39m
+ [32mΓ£ô[39m tests/r100-b7.test.ts [2m([22m[2m2 tests[22m[2m)[22m[90m 116[2mms[22m[39m
+ [32mΓ£ô[39m tests/resident-tag-invariance.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 32219[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m gate 2: a resident's tax does not turn on a tag[2m > [22mevery home state and class outside the location-rule table is tag-invariant [33m31058[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m gate 2: a resident's tax does not turn on a tag[2m > [22mevery entry in the table still MOVES, so the table cannot go stale [33m553[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m gate 2: a resident's tax does not turn on a tag[2m > [22mthe six states that DO move are Idaho, Michigan, New Mexico, Oklahoma, South Carolina and Washington, and they move for their own reasons [33m602[2mms[22m[39m
+ [32mΓ£ô[39m tests/ui-startup.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 2874[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the busy-port message works in both shells[2m > [22mexits 1 and prints the next port in bash and in PowerShell syntax [33m2862[2mms[22m[39m
+ [32mΓ£ô[39m tests/rule-consumption.test.ts [2m([22m[2m53 tests[22m[2m)[22m[33m 52343[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m field gate: a spec field is read somewhere, or is on the named backlog[2m > [22mno spec field is dead without being named here [33m51830[2mms[22m[39m
+ [32mΓ£ô[39m tests/cli.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 26293[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the CLI reports failure through its exit code[2m > [22msucceeds on a valid input file [33m3956[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the CLI reports failure through its exit code[2m > [22mfails when no input file is given [33m3388[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the CLI reports failure through its exit code[2m > [22msucceeds on --help, because asking for help is not an error [33m2338[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the CLI reports failure through its exit code[2m > [22mrefuses an unknown option by name instead of ignoring it [33m2090[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the CLI reports failure through its exit code[2m > [22mrefuses a second input file instead of quietly using the first [33m1891[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the CLI reports failure through its exit code[2m > [22mfails on input the schema rejects, and produces no partial result [33m1703[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the CLI reports failure through its exit code[2m > [22mfails on a missing file rather than reporting an empty return [33m1696[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the CLI reports failure through its exit code[2m > [22mwrites the JSON contract to the path given, with the input still positional [33m1843[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the CLI reports failure through its exit code[2m > [22mexits 2 when the combined total is incomplete, after printing and writing everything [33m1832[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the CLI reports failure through its exit code[2m > [22mexits 2, not 1, when --ledger meets a refused federal return after the report and JSON are written (pre-trial review) [33m1760[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the CLI reports failure through its exit code[2m > [22mdocuments the three exit codes in its help [33m1903[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m the CLI reports failure through its exit code[2m > [22mfails when --json is given without a path [33m1889[2mms[22m[39m
+ [32mΓ£ô[39m tests/owner-sourced-tag-invariance.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 75184[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m gate 5: with a second state on the return, a tag no state reads moves nothing[2m > [22mno state's tax moves when a record no state taxes at source changes its tag [33m62397[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m gate 5: with a second state on the return, a tag no state reads moves nothing[2m > [22mthe fixture puts a credit in play, so a clean result means something [33m4101[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m gate 5: with a second state on the return, a tag no state reads moves nothing[2m > [22mand the instrument sees a tag that DOES matter: a closely held interest's [33m8684[2mms[22m[39m
+ [32mΓ£ô[39m tests/dual-residency.test.ts [2m([22m[2m42 tests[22m[2m)[22m[33m 123236[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m gate 6: between two resident states, one credit per gain[2m > [22mnever lets two resident states each credit the other on a single record [33m60193[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m gate 6: between two resident states, one credit per gain[2m > [22mmoves no state's tax when an owner-sourced record's tag moves, for a dual resident [33m14346[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m gate 7: a credit between resident states grows no faster than the tax it relieves[2m > [22mnever lets one record buy more credit than the tax the other state levied on it [33m48291[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m217 passed[39m[22m[90m (217)[39m
+[2m      Tests [22m [1m[32m12423 passed[39m[22m[90m (12423)[39m
+[2m   Start at [22m 00:52:10
+[2m   Duration [22m 168.29s[2m (transform 20.91s, setup 0ms, collect 449.43s, tests 620.51s, environment 141ms, prepare 38.18s)[22m
+
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] }
+[Pipeline] // timeout
+[Pipeline] }
+[Pipeline] // node
+[Pipeline] End of Pipeline
+Finished: SUCCESS
+Completed TaxGlasses-CI #11 : SUCCESS
+CI exit code: 0
+ci-remote.ps1 exit code: 0
+Deleted branch ci-verify-4949462d (was 4949462d).
+git : To ssh://192.168.0.6:3333/srv/git/repos/TaxGlasses.git
+At C:\Users\skip\Downloads\TaxGlasses-Claude-Setup.ps1:156 char:15
++         Run { git -C $Repo push g7 --delete $Branch }
++               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (To ssh://192.16.../TaxGlasses.git:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+To ssh://192.168.0.6:3333/srv/git/repos/TaxGlasses.git
+ - [deleted]           ci-verify-4949462d
+ - [deleted]           ci-verify-4949462d
+Removed the worktree, the local branch and g7 branch ci-verify-4949462d
+
+=== Done ===
+Log: D:\TaxGlasses-ops\setup-20261030-005130.log
+**********************
+Windows PowerShell transcript end
+End time: 20261030005503
+**********************

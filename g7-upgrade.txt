@@ -1,0 +1,79 @@
+G7 upgrade 2026-10-30T00:59:16-07:00
+
+=== preflight ===
+jenkins installed 2.580.1, candidate 2.580.2; openjdk-25-jre-headless candidate 25.0.5+8-1~deb13u1
+JENKINS_HOME to back up: 191540 KiB; free in /var/backups: 131940684 KiB
+
+=== record the current state in /var/backups/jenkins/20261030-005916 ===
+prior jenkins 2.580.1; prior java /usr/lib/jvm/java-21-openjdk-amd64/bin/java
+
+=== stop agent, then controller ===
+
+=== back up JENKINS_HOME (excluding workspace, caches, war) ===
+total 144512
+drwx------ 2 root root      4096 Oct 30 00:59 .
+drwx------ 3 root root      4096 Oct 30 00:59 ..
+-rw------- 1 root root    146733 Oct 30 00:59 backup-contents.txt
+-rw------- 1 root root       340 Oct 30 00:59 java-alternatives-before.txt
+-rw-rw-r-- 1 root root       467 Oct 26 18:07 jenkins-agent.service
+-rw------- 1 root root 147801390 Oct 30 00:59 jenkins_home.tgz
+-rw------- 1 root root       269 Oct 30 00:59 packages-before.txt
+-rw------- 1 root root      1762 Oct 30 00:59 plugins-before.txt
+-rw------- 1 root root       599 Oct 30 00:59 ROLLBACK.txt
+
+=== install Java 25 and make it the system default ===
+Reading package lists...
+Building dependency tree...
+Reading state information...
+Suggested packages:
+  libnss-mdns fonts-ipafont-gothic fonts-ipafont-mincho fonts-wqy-microhei
+  | fonts-wqy-zenhei fonts-indic
+The following NEW packages will be installed:
+  openjdk-25-jre-headless
+0 upgraded, 1 newly installed, 0 to remove and 2 not upgraded.
+Need to get 53.6 MB of archives.
+After this operation, 245 MB of additional disk space will be used.
+Get:1 http://security.debian.org/debian-security trixie-security/main amd64 openjdk-25-jre-headless amd64 25.0.5+8-1~deb13u1 [53.6 MB]
+Fetched 53.6 MB in 1s (44.4 MB/s)
+Selecting previously unselected package openjdk-25-jre-headless:amd64.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 86015 files and directories currently installed.)
+Preparing to unpack .../openjdk-25-jre-headless_25.0.5+8-1~deb13u1_amd64.deb ...
+Unpacking openjdk-25-jre-headless:amd64 (25.0.5+8-1~deb13u1) ...
+Setting up openjdk-25-jre-headless:amd64 (25.0.5+8-1~deb13u1) ...
+update-alternatives: using /usr/lib/jvm/java-25-openjdk-amd64/bin/java to provide /usr/bin/java (java) in auto mode
+update-alternatives: using /usr/lib/jvm/java-25-openjdk-amd64/bin/jpackage to provide /usr/bin/jpackage (jpackage) in auto mode
+update-alternatives: using /usr/lib/jvm/java-25-openjdk-amd64/bin/keytool to provide /usr/bin/keytool (keytool) in auto mode
+update-alternatives: using /usr/lib/jvm/java-25-openjdk-amd64/bin/rmiregistry to provide /usr/bin/rmiregistry (rmiregistry) in auto mode
+update-alternatives: using /usr/lib/jvm/java-25-openjdk-amd64/lib/jexec to provide /usr/bin/jexec (jexec) in auto mode
+Processing triggers for ca-certificates-java (20240118) ...
+done.
+/usr/bin/java -> /usr/lib/jvm/java-25-openjdk-amd64/bin/java
+openjdk version "25.0.5" 2026-10-20
+
+=== upgrade the jenkins package only ===
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following packages will be upgraded:
+  jenkins
+1 upgraded, 0 newly installed, 0 to remove and 1 not upgraded.
+Need to get 53.8 MB of archives.
+After this operation, 21.5 kB of additional disk space will be used.
+Get:1 https://pkg.jenkins.io/debian-stable binary/ jenkins 2.580.2 [53.8 MB]
+apt-listchanges: Reading changelogs...
+Fetched 53.8 MB in 2s (21.9 MB/s)
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 86340 files and directories currently installed.)
+Preparing to unpack .../jenkins_2.580.2_all.deb ...
+Unpacking jenkins (2.580.2) over (2.580.1) ...
+Setting up jenkins (2.580.2) ...
+jenkins now 2.580.2
+
+=== start controller, then agent ===
+controller: HTTP/1.1 200 OK; X-Jenkins: 2.580.2
+
+=== verify ===
+jenkins: active, pid 185563 runs /usr/lib/jvm/java-25-openjdk-amd64/bin/java
+jenkins-agent: active, pid 185705 runs /usr/lib/jvm/java-25-openjdk-amd64/bin/java
+Oct 30 00:59:39 buttserver java[185705]: INFO: Connected
+
+Backup and rollback steps: /var/backups/jenkins/20261030-005916 (ROLLBACK.txt). Backup is root-only (mode 700).

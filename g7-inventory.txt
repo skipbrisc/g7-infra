@@ -1,0 +1,317 @@
+G7 inventory 2026-10-30T00:51:41-07:00
+
+=== host ===
+buttserver; Debian GNU/Linux 13 (trixie); kernel 6.12.113+deb13-amd64; up since 2026-10-22 12:19:34
+
+=== accounts ===
+buttmud:/home/buttmud:/bin/bash
+git:/srv/git:/usr/bin/git-shell
+jenkins:/var/lib/jenkins:/bin/bash
+jenkins-agent:/var/lib/jenkins-agent:/bin/bash
+memesniper:/var/lib/memesniper:/usr/sbin/nologin
+taxglasses: (none)
+uid=1000(buttmud) gid=1000(buttmud) groups=1000(buttmud),24(cdrom),25(floppy),27(sudo),29(audio),30(dip),44(video),46(plugdev),100(users),101(netdev),103(bluetooth)
+uid=102(git) gid=105(git) groups=105(git)
+uid=103(jenkins-agent) gid=106(jenkins-agent) groups=106(jenkins-agent)
+
+=== sudo rights ===
+User buttmud may run the following commands on buttserver:
+    (ALL : ALL) ALL
+    (memesniper) NOPASSWD: ALL
+    (root) NOPASSWD: /usr/bin/systemctl restart memesniper.service
+User jenkins-agent is not allowed to run sudo on buttserver.
+
+=== authorized_keys (fingerprints and option prefixes only) ===
+-- /home/buttmud/.ssh/authorized_keys (buttmud:buttmud 600)
+256 SHA256:mcGRWm5gZKVXj6bMkQksBqPlu3SELbdpgB41BoGtWKI Skip-laptop-G7 (ED25519)
+256 SHA256:8n0Gh2zR6X6bSTsCYFmYPW5QfZGWr6z7+cwFFSA4xh4 claude-taxglasses (ED25519)
+-- /srv/git/.ssh/authorized_keys (git:git 600)
+256 SHA256:jKpCsi8qN27XZptakdmuBXdqrIWKGuWSdMPL0Hz0LKM jenkins-local-git (ED25519)
+256 SHA256:1ZGLmg5VDAK7VKnEQAshkDdGC9FhdxjSl3GOdgg/CTY Skip-laptop-67 (ED25519)
+256 SHA256:mcGRWm5gZKVXj6bMkQksBqPlu3SELbdpgB41BoGtWKI Skip-laptop-G7 (ED25519)
+1:restrict,command="git-upload-pack '/srv/git/repos/TaxGlasses.git'" ssh-ed25519 AAAAC3NzaC1lZDI1NTE
+
+=== sshd (effective) ===
+port 3333
+listenaddress [::]:3333
+listenaddress 0.0.0.0:3333
+permitrootlogin without-password
+pubkeyauthentication yes
+passwordauthentication yes
+kbdinteractiveauthentication no
+authorizedkeysfile .ssh/authorized_keys .ssh/authorized_keys2
+
+=== packages ===
+ii  jenkins 2.580.1
+ii  nodejs 20.19.2+dfsg-1+deb13u3
+ii  npm 9.2.0~ds1-3
+ii  openjdk-21-jre 21.0.13+9-1~deb13u2
+ii  openjdk-21-jre-headless 21.0.13+9-1~deb13u2
+ii  unattended-upgrades 2.12
+jenkins:
+  Installed: 2.580.1
+  Candidate: 2.580.2
+openjdk-25-jre-headless:
+  Installed: (none)
+  Candidate: 25.0.5+8-1~deb13u1
+Value: /usr/lib/jvm/java-21-openjdk-amd64/bin/java
+Alternative: /usr/lib/jvm/java-21-openjdk-amd64/bin/java
+java processes:
+865 /usr/bin/java -Djava.awt.headless=true -jar /usr/share/java/jenkins.war --webroot=/var/cache/jenkins/war --httpPort=8080
+171010 /usr/bin/java -jar /var/lib/jenkins-agent/agent.jar -url http://127.0.0.1:8080/ -secret <REDACTED> -name g7-worker -webSocket -workDir /var/lib/jenkins-agent
+
+=== apt history (jenkins / openjdk) ===
+Install: wireguard-tools:amd64 (1.0.20210914-3, automatic), wireguard:amd64 (1.0.20210914-3)
+Start-Date: 2026-10-21  12:59:02
+Commandline: apt install -y fontconfig openjdk-21-jre
+Install: fontconfig:amd64 (2.15.0-2.3), libvulkan1:amd64 (1.4.309.0-1, automatic), libxcb-present0:amd64 (1.17.0-2+b1, automatic), libxxf86vm1:amd64 (1:1.1.4-1+b4, automatic), libsharpyuv0:amd64 (1.5.0-0.1, automatic), l
+Start-Date: 2026-10-21  13:04:21
+Commandline: apt install -y jenkins
+Install: net-tools:amd64 (2.10-1.3, automatic), jenkins:amd64 (2.580.1)
+Start-Date: 2026-10-28  06:57:04
+Commandline: /usr/bin/unattended-upgrade
+Upgrade: openjdk-21-jre:amd64 (21.0.12.1+1-1~deb13u1, 21.0.13+9-1~deb13u2), openjdk-21-jre-headless:amd64 (21.0.12.1+1-1~deb13u1, 21.0.13+9-1~deb13u2)
+
+=== unattended-upgrades ===
+enabled enabled
+Unattended-Upgrade::Origins-Pattern "";
+
+=== services ===
+jenkins                    MainPID=865 Result=success ExecMainStartTimestamp=Thu 2026-10-22 12:19:38 PDT ActiveState=active SubState=running
+jenkins-agent              MainPID=171010 Result=success ExecMainStartTimestamp=Fri 2026-10-30 00:32:16 PDT ActiveState=active SubState=running
+taxglasses-mirror.service  MainPID=0 Result=success ExecMainStartTimestamp=Fri 2026-10-30 00:50:47 PDT ActiveState=inactive SubState=dead
+taxglasses-mirror.timer    Result=success ActiveState=active SubState=waiting
+jenkins pid 865 runs /usr/lib/jvm/java-21-openjdk-amd64/bin/java (deleted)
+jenkins-agent pid 171010 runs /usr/lib/jvm/java-21-openjdk-amd64/bin/java
+
+=== unit files (agent secret redacted) ===
+# /usr/lib/systemd/system/jenkins.service
+[Unit]
+[Service]
+ExecStart=/usr/bin/jenkins
+Restart=on-failure
+User=jenkins
+Group=jenkins
+Environment="JENKINS_HOME=/var/lib/jenkins"
+#Environment="JENKINS_WAR=/usr/share/java/jenkins.war"
+Environment="JENKINS_WEBROOT=%C/jenkins/war"
+#Environment="JENKINS_LOG=%L/jenkins/jenkins.log"
+# The Java home directory. When left empty, JENKINS_JAVA_CMD and PATH are consulted.
+#Environment="JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64"
+# The Java executable. When left empty, JAVA_HOME and PATH are consulted.
+#Environment="JENKINS_JAVA_CMD=/etc/alternatives/java"
+Environment="JAVA_OPTS=-Djava.awt.headless=true"
+#Environment="JENKINS_UNIX_DOMAIN_PATH=/run/jenkins/jenkins.socket"
+#Environment="JENKINS_LISTEN_ADDRESS="
+Environment="JENKINS_PORT=8080"
+#Environment="JENKINS_HTTPS_LISTEN_ADDRESS="
+#Environment="JENKINS_HTTPS_PORT=443"
+#Environment="JENKINS_HTTPS_KEYSTORE=/path/to/keystore.jks"
+#Environment="JENKINS_HTTPS_KEYSTORE_PASSWORD=<REDACTED>"
+#Environment="JENKINS_HTTP2_LISTEN_ADDRESS="
+#Environment="JENKINS_HTTP2_PORT="
+#Environment="JENKINS_DEBUG_LEVEL=5"
+#Environment="JENKINS_ENABLE_ACCESS_LOG=false"
+#Environment="JENKINS_PREFIX=/jenkins"
+#Environment="JENKINS_OPTS="
+[Install]
+JAVA_ARGS="-Djava.awt.headless=true"
+# /etc/systemd/system/jenkins-agent.service
+[Unit]
+Description=Jenkins G7 build worker
+After=network-online.target jenkins.service
+Wants=network-online.target
+
+[Service]
+User=jenkins-agent
+Group=jenkins-agent
+WorkingDirectory=/var/lib/jenkins-agent
+ExecStart=/usr/bin/java -jar /var/lib/jenkins-agent/agent.jar -url http://127.0.0.1:8080/ -secret <REDACTED> -name g7-worker -webSocket -workDir /var/lib/jenkins-agent
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+
+
+=== JENKINS_HOME and space ===
+drwxr-xr-x 13 jenkins jenkins 4096 Oct 30 00:36 /var/lib/jenkins
+drwx------  2 jenkins jenkins 4096 Oct 26 19:43 /var/lib/jenkins/secrets
+187M	/var/lib/jenkins
+/dev/sdb2       226G   88G  126G  42% /
+/dev/sdb2       226G   88G  126G  42% /
+
+=== existing Jenkins backups ===
+/var/backups/jenkins: none
+Sat 2026-10-31 00:00:00 PDT      23h Fri 2026-10-30 00:00:02 PDT    51min ago dpkg-db-backup.timer         dpkg-db-backup.service
+
+=== GitHub mirror ===
+# /etc/systemd/system/taxglasses-mirror.service
+[Unit]
+Description=Sync TaxGlasses to GitHub
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=git
+Group=git
+WorkingDirectory=/srv/git/repos/TaxGlasses.git
+Environment="GIT_SSH_COMMAND=/usr/bin/ssh -o BatchMode=yes -o ConnectTimeout=15"
+ExecStart=/usr/bin/git push github --all
+ExecStart=/usr/bin/git push github --tags
+TimeoutStartSec=120
+
+# /etc/systemd/system/taxglasses-mirror.timer
+[Unit]
+Description=Sync TaxGlasses to GitHub every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+Unit=taxglasses-mirror.service
+
+[Install]
+WantedBy=timers.target
+Fri 2026-10-30 00:51:49 PDT       6s Fri 2026-10-30 00:50:46 PDT      56s ago taxglasses-mirror.timer      taxglasses-mirror.service
+-- runs, last 2 days
+2026-10-30T00:42:36-07:00 buttserver systemd[1]: Starting taxglasses-mirror.service - Sync TaxGlasses to GitHub...
+2026-10-30T00:42:37-07:00 buttserver git[177928]: Everything up-to-date
+2026-10-30T00:42:39-07:00 buttserver git[177935]: Everything up-to-date
+2026-10-30T00:42:39-07:00 buttserver systemd[1]: taxglasses-mirror.service: Deactivated successfully.
+2026-10-30T00:42:39-07:00 buttserver systemd[1]: Finished taxglasses-mirror.service - Sync TaxGlasses to GitHub.
+2026-10-30T00:43:46-07:00 buttserver systemd[1]: Starting taxglasses-mirror.service - Sync TaxGlasses to GitHub...
+2026-10-30T00:43:48-07:00 buttserver git[177943]: Everything up-to-date
+2026-10-30T00:43:49-07:00 buttserver git[177947]: Everything up-to-date
+2026-10-30T00:43:49-07:00 buttserver systemd[1]: taxglasses-mirror.service: Deactivated successfully.
+2026-10-30T00:43:49-07:00 buttserver systemd[1]: Finished taxglasses-mirror.service - Sync TaxGlasses to GitHub.
+2026-10-30T00:44:56-07:00 buttserver systemd[1]: Starting taxglasses-mirror.service - Sync TaxGlasses to GitHub...
+2026-10-30T00:44:58-07:00 buttserver git[177955]: Everything up-to-date
+2026-10-30T00:44:59-07:00 buttserver git[177961]: Everything up-to-date
+2026-10-30T00:44:59-07:00 buttserver systemd[1]: taxglasses-mirror.service: Deactivated successfully.
+2026-10-30T00:44:59-07:00 buttserver systemd[1]: Finished taxglasses-mirror.service - Sync TaxGlasses to GitHub.
+2026-10-30T00:46:06-07:00 buttserver systemd[1]: Starting taxglasses-mirror.service - Sync TaxGlasses to GitHub...
+2026-10-30T00:46:08-07:00 buttserver git[177983]: Everything up-to-date
+2026-10-30T00:46:09-07:00 buttserver git[177986]: Everything up-to-date
+2026-10-30T00:46:09-07:00 buttserver systemd[1]: taxglasses-mirror.service: Deactivated successfully.
+2026-10-30T00:46:09-07:00 buttserver systemd[1]: Finished taxglasses-mirror.service - Sync TaxGlasses to GitHub.
+2026-10-30T00:47:16-07:00 buttserver systemd[1]: Starting taxglasses-mirror.service - Sync TaxGlasses to GitHub...
+2026-10-30T00:47:17-07:00 buttserver git[177998]: Everything up-to-date
+2026-10-30T00:47:19-07:00 buttserver git[178007]: Everything up-to-date
+2026-10-30T00:47:19-07:00 buttserver systemd[1]: taxglasses-mirror.service: Deactivated successfully.
+2026-10-30T00:47:19-07:00 buttserver systemd[1]: Finished taxglasses-mirror.service - Sync TaxGlasses to GitHub.
+2026-10-30T00:48:26-07:00 buttserver systemd[1]: Starting taxglasses-mirror.service - Sync TaxGlasses to GitHub...
+2026-10-30T00:48:27-07:00 buttserver git[178013]: Everything up-to-date
+2026-10-30T00:48:29-07:00 buttserver git[178016]: Everything up-to-date
+2026-10-30T00:48:29-07:00 buttserver systemd[1]: taxglasses-mirror.service: Deactivated successfully.
+2026-10-30T00:48:29-07:00 buttserver systemd[1]: Finished taxglasses-mirror.service - Sync TaxGlasses to GitHub.
+2026-10-30T00:49:36-07:00 buttserver systemd[1]: Starting taxglasses-mirror.service - Sync TaxGlasses to GitHub...
+2026-10-30T00:49:38-07:00 buttserver git[178024]: Everything up-to-date
+2026-10-30T00:49:39-07:00 buttserver git[178030]: Everything up-to-date
+2026-10-30T00:49:39-07:00 buttserver systemd[1]: taxglasses-mirror.service: Deactivated successfully.
+2026-10-30T00:49:39-07:00 buttserver systemd[1]: Finished taxglasses-mirror.service - Sync TaxGlasses to GitHub.
+2026-10-30T00:50:46-07:00 buttserver systemd[1]: Starting taxglasses-mirror.service - Sync TaxGlasses to GitHub...
+2026-10-30T00:50:47-07:00 buttserver git[178036]: Everything up-to-date
+2026-10-30T00:50:49-07:00 buttserver git[178039]: Everything up-to-date
+2026-10-30T00:50:49-07:00 buttserver systemd[1]: taxglasses-mirror.service: Deactivated successfully.
+2026-10-30T00:50:49-07:00 buttserver systemd[1]: Finished taxglasses-mirror.service - Sync TaxGlasses to GitHub.
+-- warnings and errors, last 14 days
+2026-10-21T14:46:13-07:00 buttserver systemd[1]: taxglasses-mirror.service: Failed with result 'exit-code'.
+2026-10-21T14:46:13-07:00 buttserver systemd[1]: Failed to start taxglasses-mirror.service - Sync TaxGlasses to GitHub.
+2026-10-22T08:40:20-07:00 buttserver systemd[1]: taxglasses-mirror.service: Failed with result 'exit-code'.
+2026-10-22T08:40:20-07:00 buttserver systemd[1]: Failed to start taxglasses-mirror.service - Sync TaxGlasses to GitHub.
+-- Boot 93c4abce7da54fd686c10cca289c3e31 --
+2026-10-22T12:20:54-07:00 buttserver systemd[1]: taxglasses-mirror.service: Failed with result 'exit-code'.
+2026-10-22T12:20:54-07:00 buttserver systemd[1]: Failed to start taxglasses-mirror.service - Sync TaxGlasses to GitHub.
+2026-10-22T17:18:52-07:00 buttserver systemd[1]: taxglasses-mirror.service: Failed with result 'exit-code'.
+2026-10-22T17:18:52-07:00 buttserver systemd[1]: Failed to start taxglasses-mirror.service - Sync TaxGlasses to GitHub.
+
+=== bare repository ===
+file:/root/.gitconfig	user.name=skipbrisc
+file:/root/.gitconfig	user.email=skip@that-guy-skip.com
+file:/root/.gitconfig	safe.directory=/srv/git/repos/memesniper.git
+file:config	core.repositoryformatversion=0
+file:config	core.filemode=true
+file:config	core.bare=true
+file:config	remote.origin.url=/root/projects/TaxGlasses
+file:config	remote.github.url=git@github.com:skipbrisc/TaxGlasses.git
+file:config	remote.github.fetch=+refs/heads/*:refs/remotes/github/*
+command line:	safe.directory=/srv/git/repos/TaxGlasses.git
+HEAD -> refs/heads/master
+total 72
+drwx------ 2 git git 4096 Oct 21 13:47 .
+drwx------ 7 git git 4096 Oct 21 14:04 ..
+f1f40672 2026-10-30 00:30:09 -0700 refs/heads/beta-stack
+f1f40672 2026-10-30 00:30:09 -0700 refs/remotes/github/beta-stack
+1f636887 2026-10-30 00:17:29 -0700 refs/heads/return-shape-ladder-ui
+1f636887 2026-10-30 00:17:29 -0700 refs/remotes/github/return-shape-ladder-ui
+7229742b 2026-09-12 13:39:44 -0700 refs/heads/master
+7229742b 2026-09-12 13:39:44 -0700 refs/remotes/github/master
+refs: 6  tags: 0
+
+=== TaxGlasses runtime / deployment ===
+taxglasses-mirror.service                                                 static          -
+taxglasses-mirror.timer                                                   enabled         enabled
+/opt/containerd
+/opt/memesniper
+/srv/git
+10.77.0.1:8765 users:(("python",pid=168945,fd=10))
+
+=== WireGuard (private keys hidden) ===
+interface: wg0
+  public key: tanf/9aIsqo1b1Xm0dydGczTn1yblvG4tDekcPr1+zU=
+  listening port: 51820
+
+peer: /+RI8n0Dp7SnzUDUa21aIzJuM/RxSWdOAQ2py9FMdDk=
+  endpoint: 174.204.68.127:11033
+  allowed ips: 10.77.0.2/32
+  latest handshake: 1 minute, 13 seconds ago
+  transfer: 499.68 MiB received, 4.86 GiB sent
+
+peer: yr+gwphzZc/qocxjaTf2Bsnf6Rsk26RddaTHp86Zehk=
+  endpoint: 73.118.146.2:54634
+  allowed ips: 10.77.0.3/32
+  latest handshake: 2 days, 2 hours, 35 minutes, 7 seconds ago
+  transfer: 20.29 MiB received, 68.51 MiB sent
+wlp0s20f3        UP             192.168.0.6/24 fe80::f157:d4ac:681:8456/64 
+wg0              UNKNOWN        10.77.0.1/24 
+ip_forward=1
+
+=== firewall ===
+6:		type nat hook prerouting priority dstnat; policy accept;
+11:		type nat hook output priority dstnat; policy accept;
+16:		type nat hook postrouting priority srcnat; policy accept;
+17:		ip saddr 172.17.0.0/16 oifname != "docker0" counter packets 0 bytes 0 masquerade
+18:		ip saddr 10.77.0.0/24 oifname "wlp0s20f3" counter packets 34000 bytes 18770579 masquerade
+23:		iifname != "docker0" oifname "docker0" counter packets 0 bytes 0 drop
+30:		iifname "docker0" counter packets 0 bytes 0 accept
+34:		oifname "docker0" counter packets 0 bytes 0 jump DOCKER
+38:		oifname "docker0" ct state related,established counter packets 0 bytes 0 accept
+45:		type filter hook forward priority filter; policy drop;
+51:		ip saddr 10.77.0.0/24 iifname "wg0" oifname "wlp0s20f3" counter packets 1667442 bytes 475053495 accept
+52:		ip daddr 10.77.0.0/24 iifname "wlp0s20f3" oifname "wg0" ct state related,established counter packets 3716167 bytes 4950066454 accept
+60:		type nat hook prerouting priority dstnat; policy accept;
+65:		type nat hook output priority dstnat; policy accept;
+89:		type filter hook forward priority filter; policy accept;
+-P INPUT ACCEPT
+-P FORWARD DROP
+-P OUTPUT ACCEPT
+-N DOCKER
+-N DOCKER-BRIDGE
+-N DOCKER-CT
+-N DOCKER-FORWARD
+-N DOCKER-INTERNAL
+-N DOCKER-USER
+-A FORWARD -j DOCKER-USER
+-A FORWARD -j DOCKER-FORWARD
+-A DOCKER ! -i docker0 -o docker0 -j DROP
+-A DOCKER-BRIDGE -o docker0 -j DOCKER
+-A DOCKER-CT -o docker0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A DOCKER-FORWARD -j DOCKER-CT
+-A DOCKER-FORWARD -j DOCKER-INTERNAL
+-A DOCKER-FORWARD -j DOCKER-BRIDGE
+-A DOCKER-FORWARD -i docker0 -j ACCEPT
+-A DOCKER-USER -s 10.77.0.0/24 -i wg0 -o wlp0s20f3 -j ACCEPT
+-A DOCKER-USER -d 10.77.0.0/24 -i wlp0s20f3 -o wg0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+inventory finished
