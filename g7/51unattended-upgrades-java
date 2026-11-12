@@ -1,6 +1,6 @@
 // G7: keep unattended-upgrades from replacing Java under the running Jenkins services.
 // Java is updated by hand during monthly maintenance, then scripts/g7-restart.ps1 -Service all.
-// Installed at /etc/apt/apt.conf.d/51unattended-upgrades-java (see ops/g7/README.md).
+// Installed at /etc/apt/apt.conf.d/51unattended-upgrades-java (see g7/README.md).
 Unattended-Upgrade::Package-Blacklist {
   "openjdk-.*";
   "temurin-.*";

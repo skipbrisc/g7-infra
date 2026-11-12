@@ -1,5 +1,5 @@
 #!/bin/sh
-# /usr/local/sbin/g7-backup on G7 (root:root 0700). Source: ops/g7/backup/g7-backup in the TaxGlasses repo.
+# /usr/local/sbin/g7-backup on G7 (root:root 0700). Source: g7/backup/g7-backup in the g7-infra repo.
 # Nightly encrypted, deduplicated backup of G7's own state into a restic repository on the second
 # disk. Run by g7-backup.timer; run by hand with: sudo /usr/local/sbin/g7-backup
 set -eu

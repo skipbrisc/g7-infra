@@ -17,11 +17,11 @@ Ping key) is in `/root/.healthchecks-ping-key` on G7 and in Vaultwarden, nowhere
 ## Install (root, once)
 
 Create the three checks on healthchecks.io first, with exactly these slugs. Then from
-`D:\TaxGlasses` in PowerShell, one command at a time:
+`D:\TaxGlasses-ops` in PowerShell, one command at a time:
 
     ssh g7-taxglasses "rm -rf /tmp/g7-healthchecks && mkdir /tmp/g7-healthchecks"
 
-    scp ops/g7/healthchecks/g7-hc-ping ops/g7/healthchecks/g7-heartbeat.service ops/g7/healthchecks/g7-heartbeat.timer ops/g7/healthchecks/ping-backup.conf ops/g7/healthchecks/ping-mirror.conf ops/g7/healthchecks/install.sh g7-taxglasses:/tmp/g7-healthchecks/
+    scp g7/healthchecks/g7-hc-ping g7/healthchecks/g7-heartbeat.service g7/healthchecks/g7-heartbeat.timer g7/healthchecks/ping-backup.conf g7/healthchecks/ping-mirror.conf g7/healthchecks/install.sh g7-taxglasses:/tmp/g7-healthchecks/
 
     ssh -t g7-taxglasses "sudo sh /tmp/g7-healthchecks/install.sh"
 

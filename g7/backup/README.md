@@ -13,9 +13,9 @@ Alerts: ntfy topic `g7` (subscribe on the phone), low on success, high on failur
 
 ## Install (once)
 
-From `D:\TaxGlasses`, one command at a time:
+From `D:\TaxGlasses-ops`, one command at a time:
 
-    scp -r ops/g7/backup g7-taxglasses:/tmp/g7-backup
+    scp -r g7/backup g7-taxglasses:/tmp/g7-backup
     ssh -t g7-taxglasses "sudo sh /tmp/g7-backup/install.sh"
 
 It prints the repository password once at the end: put it in Vaultwarden. Then give the

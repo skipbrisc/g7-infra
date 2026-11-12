@@ -8,9 +8,9 @@ It runs ON G7, so it cannot tell you G7 itself is down. That is Healthchecks.io'
 
 ## Install (root, once)
 
-From `D:\TaxGlasses` in PowerShell, one command at a time:
+From `D:\TaxGlasses-ops` in PowerShell, one command at a time:
 
-    scp ops/g7/uptime-kuma/docker-compose.yml g7-taxglasses:/tmp/kuma-compose.yml
+    scp g7/uptime-kuma/docker-compose.yml g7-taxglasses:/tmp/kuma-compose.yml
 
     ssh -t g7-taxglasses "sudo -v && sudo install -d -m 0755 /opt/uptime-kuma && sudo install -d -m 0750 /opt/uptime-kuma/data && sudo install -m 0644 /tmp/kuma-compose.yml /opt/uptime-kuma/docker-compose.yml && rm -f /tmp/kuma-compose.yml && cd /opt/uptime-kuma && sudo docker compose up -d && sleep 20 && curl -sS -o /dev/null -w '%{http_code}\n' http://192.168.0.6:3001/"
 
@@ -66,4 +66,4 @@ normally answer. During a deploy the idle one restarts, which the 2 retries abso
 
 ## Backup
 
-`/opt/uptime-kuma/data` must be in the nightly backup (see `ops/g7/backup/g7-backup`).
+`/opt/uptime-kuma/data` must be in the nightly backup (see `g7/backup/g7-backup`).

@@ -6,9 +6,9 @@ server denies everything by default, so other WireGuard peers can't read or post
 
 ## Install (root, once)
 
-From `D:\TaxGlasses` in PowerShell:
+From `D:\TaxGlasses-ops` in PowerShell:
 
-    scp ops/g7/ntfy/docker-compose.yml ops/g7/ntfy/server.yml g7-taxglasses:/tmp/
+    scp g7/ntfy/docker-compose.yml g7/ntfy/server.yml g7-taxglasses:/tmp/
     ssh -t g7-taxglasses "sudo -v && sudo install -d -m 0755 /opt/ntfy /opt/ntfy/etc && sudo install -d -m 0750 /opt/ntfy/lib && sudo install -m 0644 /tmp/docker-compose.yml /opt/ntfy/docker-compose.yml && sudo install -m 0644 /tmp/server.yml /opt/ntfy/etc/server.yml && rm -f /tmp/docker-compose.yml /tmp/server.yml && cd /opt/ntfy && sudo docker compose up -d && sleep 3 && curl -fsS http://127.0.0.1:2586/v1/health"
 
 The last line should print `{"healthy":true}`.

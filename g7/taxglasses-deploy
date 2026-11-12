@@ -1,6 +1,6 @@
 #!/bin/sh
 # /usr/local/sbin/taxglasses-deploy on G7 (root:root 0755). Source of truth: this file in the repo.
-# Install: see ops/g7/README.md. Called by Jenkins TaxGlasses-Deploy as jenkins-agent through
+# Install: see g7/README.md. Called by Jenkins TaxGlasses-Deploy as jenkins-agent through
 # /etc/sudoers.d/jenkins-taxglasses (stage|promote <sha>, rollback).
 set -eu
 umask 022
