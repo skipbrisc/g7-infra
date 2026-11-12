@@ -1,0 +1,7 @@
+[Unit]
+Description=Vaultwarden nightly backup
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/vaultwarden-backup.sh

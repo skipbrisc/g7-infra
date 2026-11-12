@@ -1,0 +1,37 @@
+[Unit]
+Description=MemeSniper Tier2 unsigned buy compatibility study
+Wants=memesniper-tier2-20261110-source.service
+After=memesniper-tier2-20261110-source.service
+
+[Service]
+Type=exec
+User=memesniper-tier2
+Group=memesniper-tier2
+WorkingDirectory=/opt/memesniper-tier2-20261110
+ExecStart=/opt/memesniper-tier2-20261110/venv/bin/python -I -S -B /opt/memesniper-tier2-20261110/live_executor/tier2_ops/launch.py tier2 --owner-config /etc/memesniper-tier2-20261110.json
+EnvironmentFile=/etc/memesniper-live/rpc.env
+Environment=PYTHONDONTWRITEBYTECODE=1 HOME=/var/lib/memesniper-tier2-20261110/probe
+UnsetEnvironment=PYTHONPATH PYTHONHOME PYTHONSTARTUP PYTHONUSERBASE LD_PRELOAD LD_LIBRARY_PATH
+Restart=no
+RuntimeMaxSec=86430
+TimeoutStopSec=30
+Nice=19
+CPUWeight=1
+IOWeight=1
+MemoryMax=1G
+TasksMax=64
+UMask=0027
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=/var/lib/memesniper-tier2-20261110/probe /var/lib/memesniper-tier2-20261110/control
+InaccessiblePaths=/var/lib/memesniper-signer /etc/memesniper-live /var/lib/memesniper/workspace /opt/memesniper/app
+StandardOutput=null
+StandardError=null

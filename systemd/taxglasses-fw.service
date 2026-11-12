@@ -1,0 +1,13 @@
+[Unit]
+Description=TaxGlasses WireGuard peer firewall
+After=docker.service wg-quick@wg0.service
+Requires=docker.service
+PartOf=wg-quick@wg0.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/taxglasses-fw.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target wg-quick@wg0.service

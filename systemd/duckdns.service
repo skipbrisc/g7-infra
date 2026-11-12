@@ -1,0 +1,8 @@
+[Unit]
+Description=Update Duck DNS public IP
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'result=$(/usr/bin/curl --config /etc/duckdns.conf) || exit 1; if [ "$result" = "OK" ]; then echo "Duck DNS update successful"; else echo "Duck DNS update failed"; exit 1; fi'

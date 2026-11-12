@@ -1,0 +1,16 @@
+[Unit]
+Description=Jenkins G7 build worker
+After=network-online.target jenkins.service
+Wants=network-online.target
+
+[Service]
+User=jenkins-agent
+Group=jenkins-agent
+WorkingDirectory=/var/lib/jenkins-agent
+ExecStart=/usr/bin/java -jar /var/lib/jenkins-agent/agent.jar -url http://127.0.0.1:8080/ -secret <REDACTED> -name g7-worker -webSocket -workDir /var/lib/jenkins-agent
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+

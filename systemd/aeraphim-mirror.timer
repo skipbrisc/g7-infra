@@ -1,0 +1,10 @@
+[Unit]
+Description=Sync Aeraphim to GitHub every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+Unit=aeraphim-mirror.service
+
+[Install]
+WantedBy=timers.target

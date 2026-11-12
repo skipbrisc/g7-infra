@@ -1,0 +1,17 @@
+# ntfy on G7: phone alerts from Jenkins. Installed at /opt/ntfy (see README.md).
+services:
+  ntfy:
+    image: binwiederhier/ntfy
+    command: serve
+    restart: unless-stopped
+    environment:
+      TZ: America/Los_Angeles
+    ports:
+      - "127.0.0.1:2586:80"     # Jenkins on G7
+      - "192.168.0.6:2586:80"   # phone at home; away, WireGuard routes 192.168.0.6
+    volumes:
+      - ./etc:/etc/ntfy:ro
+      - ./lib:/var/lib/ntfy
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m

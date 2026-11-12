@@ -1,0 +1,30 @@
+#!/bin/sh
+# /srv/git/repos/TaxGlasses.git/hooks/post-receive on G7 (git:git 0755). Source: this file.
+# Queues TaxGlasses-CI for each push to master, so a push from anywhere (Codex, a plain git push)
+# is tested and, when green, deployed. scripts/ci-remote.ps1 starts and streams its own build, so
+# it pushes with the push option ci=remote and this hook leaves that push alone (one build, one
+# deploy). Push options need: git -C /srv/git/repos/TaxGlasses.git config receive.advertisePushOptions true
+. /etc/taxglasses/jenkins-hook.env
+ZERO=0000000000000000000000000000000000000000
+
+i=0
+while [ "$i" -lt "${GIT_PUSH_OPTION_COUNT:-0}" ]; do
+  eval "opt=\${GIT_PUSH_OPTION_$i}"
+  if [ "$opt" = ci=remote ]; then
+    echo "Jenkins: CI is started by ci-remote for this push"
+    exit 0
+  fi
+  i=$((i + 1))
+done
+
+while read old new ref; do
+  [ "$ref" = refs/heads/master ] || continue
+  [ "$new" = "$ZERO" ] && continue
+  if curl -fsS -m 10 -X POST -u "$JENKINS_USER:$JENKINS_TOKEN" \
+       "http://127.0.0.1:8080/job/TaxGlasses-CI/buildWithParameters" \
+       --data-urlencode "REVISION=$new" >/dev/null; then
+    echo "Jenkins: TaxGlasses-CI queued for $(echo $new | cut -c1-8)"
+  else
+    echo "Jenkins: could not queue CI for $new (push still succeeded)" >&2
+  fi
+done

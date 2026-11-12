@@ -1,0 +1,10 @@
+[Unit]
+Description=Sync g7-infra to GitHub every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+Unit=g7-infra-mirror.service
+
+[Install]
+WantedBy=timers.target

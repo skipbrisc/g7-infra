@@ -1,0 +1,10 @@
+[Unit]
+Description=G7 nightly backup (restic to /mnt/data)
+After=docker.service local-fs.target
+Wants=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/g7-backup
+Nice=10
+IOSchedulingClass=idle

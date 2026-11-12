@@ -1,0 +1,60 @@
+#!/bin/sh
+# /usr/local/sbin/g7-backup on G7 (root:root 0700). Source: ops/g7/backup/g7-backup in the TaxGlasses repo.
+# Nightly encrypted, deduplicated backup of G7's own state into a restic repository on the second
+# disk. Run by g7-backup.timer; run by hand with: sudo /usr/local/sbin/g7-backup
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export RESTIC_REPOSITORY=/mnt/data/G7-backups/restic
+export RESTIC_PASSWORD_FILE=/root/.restic-g7
+export RESTIC_CACHE_DIR=/var/cache/restic   # systemd runs this without $HOME
+STAGE=/var/backups/g7-stage
+NTFY_TOKEN_FILE=/root/.ntfy-g7-token
+
+notify() { # title, message, priority
+  [ -r "$NTFY_TOKEN_FILE" ] || return 0
+  curl -fsS -m 10 -o /dev/null -H "Authorization: Bearer $(tr -d '[:space:]' < "$NTFY_TOKEN_FILE")" \
+    -H "Title: $1" -H "Priority: $3" -d "$2" http://127.0.0.1:2586/g7 || true
+}
+fail() { notify "G7 backup FAILED" "$1" high; echo "g7-backup: $1" >&2; exit 1; }
+
+mountpoint -q /mnt/data || mount /mnt/data || fail "the backup disk (/mnt/data) is not mounted"
+[ -d "$RESTIC_REPOSITORY" ] || fail "no restic repository at $RESTIC_REPOSITORY"
+
+# Consistent copies of the databases that are written while running.
+rm -rf "$STAGE"; mkdir -p -m 0700 "$STAGE"
+if [ -f /srv/vaultwarden/data/db.sqlite3 ]; then
+  sqlite3 /srv/vaultwarden/data/db.sqlite3 ".backup '$STAGE/vaultwarden-db.sqlite3'" || fail "Vaultwarden database copy failed"
+fi
+if [ -f /opt/ntfy/lib/user.db ]; then
+  sqlite3 /opt/ntfy/lib/user.db ".backup '$STAGE/ntfy-user.db'" || fail "ntfy user database copy failed"
+fi
+if [ -f /opt/uptime-kuma/data/kuma.db ]; then
+  sqlite3 /opt/uptime-kuma/data/kuma.db ".backup '$STAGE/uptime-kuma.db'" || echo "g7-backup: Uptime Kuma database copy skipped (monitor settings only; not fatal)" >&2
+fi
+
+restic backup --one-file-system --tag nightly \
+  --exclude /var/lib/memesniper/incoming \
+  --exclude /var/lib/memesniper/imports \
+  --exclude /var/lib/memesniper/.npm \
+  --exclude /var/lib/memesniper/migration-tools \
+  --exclude /var/lib/jenkins/workspace \
+  --exclude /var/lib/jenkins/caches \
+  --exclude /var/lib/jenkins/.cache \
+  --exclude '*.sqlite-shm' \
+  "$STAGE" /srv/git/repos /srv/vaultwarden /var/lib/jenkins /opt/taxglasses /opt/ntfy /opt/uptime-kuma \
+  /var/lib/memesniper /etc /usr/local/sbin /var/backups/jenkins \
+  || fail "restic backup failed (exit $?)"
+
+restic forget --keep-daily 14 --keep-weekly 8 --keep-monthly 6 --prune --quiet \
+  || fail "restic forget/prune failed"
+
+# Sundays: read back 5% of the stored data to prove it is restorable.
+if [ "$(date +%u)" = 7 ]; then
+  restic check --read-data-subset=5% --quiet || fail "restic check found a problem"
+fi
+
+rm -rf "$STAGE"
+SNAP=$(restic snapshots --latest 1 --compact | awk 'NR==3{print $1}')
+FREE=$(df -h --output=avail /mnt/data | tail -1 | tr -d ' ')
+notify "G7 backup ok" "Snapshot $SNAP saved. Backup disk free: $FREE." low
+echo "g7-backup: snapshot $SNAP saved; $FREE free on /mnt/data"

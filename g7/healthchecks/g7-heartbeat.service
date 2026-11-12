@@ -1,0 +1,8 @@
+[Unit]
+Description=G7 heartbeat to Healthchecks.io (alerts when G7 or its internet is down)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/g7-hc-ping g7-heartbeat

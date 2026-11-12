@@ -1,0 +1,14 @@
+[Unit]
+Description=Sync Aeraphim to GitHub
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=git
+Group=git
+WorkingDirectory=/srv/git/repos/Aeraphim.git
+Environment="GIT_SSH_COMMAND=/usr/bin/ssh -o BatchMode=yes -o ConnectTimeout=15"
+ExecStart=/usr/bin/git push github --all
+ExecStart=/usr/bin/git push github --tags
+TimeoutStartSec=120

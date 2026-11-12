@@ -1,0 +1,11 @@
+#!/bin/sh
+# /usr/local/sbin/g7-hc-ping on G7 (root:root 0755). Source: ops/g7/healthchecks in the TaxGlasses repo.
+# Tells Healthchecks.io that a job just ran:  g7-hc-ping <slug>
+# The project's ping key is in /root/.healthchecks-ping-key (root only). Never fails its caller:
+# a job must not break because the internet or Healthchecks.io is down.
+SLUG="${1:-}"
+[ -n "$SLUG" ] || exit 0
+KEY="$(tr -d '[:space:]' < /root/.healthchecks-ping-key 2>/dev/null || true)"
+[ -n "$KEY" ] || exit 0
+curl -fsS -m 10 --retry 3 -o /dev/null "https://hc-ping.com/$KEY/$SLUG" || true
+exit 0

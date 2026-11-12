@@ -1,0 +1,19 @@
+# Uptime Kuma on G7: checks that every service still answers, alerts through ntfy.
+# Installed at /opt/uptime-kuma (see README.md).
+#
+# Host networking on purpose: the things it watches listen on G7's own addresses
+# (10.77.0.1:8090-8092, 10.77.0.1:8765, 127.0.0.1:2586, :8080), which a container on a
+# Docker bridge cannot reach reliably. The web page listens on 192.168.0.6:3001 only.
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:2
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TZ: America/Los_Angeles
+      UPTIME_KUMA_HOST: 192.168.0.6   # at home directly; away, WireGuard routes 192.168.0.6
+      UPTIME_KUMA_PORT: "3001"
+    volumes:
+      - ./data:/app/data
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 512m

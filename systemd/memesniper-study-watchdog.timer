@@ -1,0 +1,11 @@
+[Unit]
+Description=Check MemeSniper study liveness every five minutes
+
+[Timer]
+OnCalendar=*-*-* *:0/5:00
+AccuracySec=1s
+Persistent=true
+Unit=memesniper-study-watchdog.service
+
+[Install]
+WantedBy=timers.target

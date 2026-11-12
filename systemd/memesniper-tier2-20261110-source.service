@@ -1,0 +1,34 @@
+[Unit]
+Description=MemeSniper Tier2 public event relay (no network)
+
+[Service]
+Type=exec
+User=memesniper
+Group=memesniper-tier2
+WorkingDirectory=/opt/memesniper-tier2-20261110
+ExecStart=/opt/memesniper-tier2-20261110/venv/bin/python -I -S -B /opt/memesniper-tier2-20261110/live_executor/tier2_ops/launch.py tier2-source --owner-config /etc/memesniper-tier2-20261110.json
+Environment=PYTHONDONTWRITEBYTECODE=1 HOME=/var/lib/memesniper-tier2-20261110/source
+UnsetEnvironment=PYTHONPATH PYTHONHOME PYTHONSTARTUP PYTHONUSERBASE LD_PRELOAD LD_LIBRARY_PATH
+Restart=no
+RuntimeMaxSec=86430
+Nice=19
+CPUWeight=1
+IOWeight=1
+MemoryMax=256M
+TasksMax=32
+UMask=0027
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+PrivateNetwork=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX
+ReadWritePaths=/var/lib/memesniper-tier2-20261110/source /var/lib/memesniper-tier2-20261110/control
+InaccessiblePaths=-/var/lib/memesniper-signer -/etc/memesniper-live -/var/lib/memesniper/secrets -/var/lib/memesniper/workspace/secrets
+StandardOutput=null
+StandardError=null

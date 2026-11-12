@@ -1,0 +1,9 @@
+base-url: "http://192.168.0.6:2586"
+listen-http: ":80"
+cache-file: "/var/lib/ntfy/cache.db"
+auth-file: "/var/lib/ntfy/user.db"
+auth-default-access: "deny-all"
+# iPhone: Apple only delivers background pushes through its own service, so each alert also sends
+# a wake-up ping through ntfy.sh. Only a hash of the topic address and the message ID go there;
+# the phone then fetches the alert itself from this server.
+upstream-base-url: "https://ntfy.sh"
