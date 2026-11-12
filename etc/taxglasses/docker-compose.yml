@@ -1,0 +1,28 @@
+x-app: &app
+  restart: unless-stopped
+  read_only: true
+  tmpfs: [/tmp]
+  mem_limit: 512m
+  security_opt: ["no-new-privileges:true"]
+
+services:
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["10.77.0.1:8090:8090"]
+    volumes:
+      - ./caddy:/etc/caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+  blue:
+    <<: *app
+    image: taxglasses:blue
+    ports: ["10.77.0.1:8091:8090"]
+  green:
+    <<: *app
+    image: taxglasses:green
+    ports: ["10.77.0.1:8092:8090"]
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,7 @@
+{
+	admin localhost:2019
+	auto_https off
+}
+:8090 {
+	import /etc/caddy/live.caddy
+}
