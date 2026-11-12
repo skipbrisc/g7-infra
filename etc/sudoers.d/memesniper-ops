@@ -1,0 +1,2 @@
+buttmud ALL=(memesniper) NOPASSWD: ALL
+buttmud ALL=(root) NOPASSWD: /usr/bin/systemctl restart memesniper.service

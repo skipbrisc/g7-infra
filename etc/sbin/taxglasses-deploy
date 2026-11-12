@@ -1,0 +1,86 @@
+#!/bin/sh
+# /usr/local/sbin/taxglasses-deploy on G7 (root:root 0755). Source of truth: this file in the repo.
+# Install: see ops/g7/README.md. Called by Jenkins TaxGlasses-Deploy as jenkins-agent through
+# /etc/sudoers.d/jenkins-taxglasses (stage|promote <sha>, rollback).
+set -eu
+umask 022
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+cd /opt/taxglasses
+exec 9>/run/taxglasses-deploy.lock
+flock -n 9 || { echo "another deploy is running" >&2; exit 75; }
+
+other()  { [ "$1" = blue ] && echo green || echo blue; }
+port()   { [ "$1" = blue ] && echo 8091 || echo 8092; }
+shaok()  { echo "${1:-}" | grep -Eqx '[0-9a-f]{40}' || { echo "need a 40-char sha" >&2; exit 2; }; }
+healthy() {
+  for i in $(seq 1 24); do
+    [ "$(docker inspect -f '{{.State.Health.Status}}' "taxglasses-$1-1" 2>/dev/null || echo none)" = healthy ] && return 0
+    sleep 5
+  done; return 1
+}
+switch_to() {
+  printf 'reverse_proxy %s:8090\n' "$1" > caddy/live.caddy
+  docker compose exec -T proxy caddy reload --config /etc/caddy/Caddyfile
+  sleep 2; curl -fsS -m 5 http://10.77.0.1:8090/api/meta >/dev/null
+}
+
+LIVE=$(cat live-color); IDLE=$(other "$LIVE")
+
+case "${1:-}" in
+stage)
+  [ $# -eq 2 ] || exit 2; shaok "$2"; SHA=$2
+  git -C app fetch -q origin
+  git -C app merge-base --is-ancestor "$SHA" origin/master || { echo "$SHA is not on master" >&2; exit 2; }
+  # Deploying what is already live would rebuild the idle color and lose the rollback target.
+  if [ "$(cat "sha-$LIVE" 2>/dev/null)" = "$SHA" ] && [ ! -f staged ]; then
+    echo "$(echo $SHA | cut -c1-8) is already live on $LIVE; nothing staged, rollback target unchanged."
+    exit 0
+  fi
+  # From here on the idle color stops being the rollback target.
+  echo "$SHA" > staged
+  git -C app checkout -q --detach "$SHA"
+  docker build -q --build-arg REVISION="$SHA" -t "taxglasses:$SHA" app >/dev/null
+  docker tag "taxglasses:$SHA" "taxglasses:$IDLE"
+  docker compose up -d --no-build --force-recreate "$IDLE"
+  healthy "$IDLE" || { echo "$IDLE failed its health check; live ($LIVE) untouched" >&2; docker compose logs --tail=30 "$IDLE" >&2; exit 1; }
+  echo "$SHA" > "sha-$IDLE"
+  echo "Staged $(echo $SHA | cut -c1-8) on $IDLE. Preview: http://10.77.0.1:$(port $IDLE)"
+  set +e
+  docker run --rm --network taxglasses_default --read-only --tmpfs /tmp "taxglasses:$SHA" \
+    node --import tsx src/tools/deploy-compare.ts "http://$LIVE:8090" "http://$IDLE:8090" deploy-smoke
+  rc=$?; set -e
+  case $rc in
+    0) echo "No figure changes compared with live." ;;
+    3) echo "Figure changes found (listed above)." ;;
+    *) echo "Comparison failed (exit $rc)." >&2; exit 1 ;;
+  esac
+  exit $rc ;;
+promote)
+  [ $# -eq 2 ] || exit 2; shaok "$2"; SHA=$2
+  if [ "$(cat "sha-$LIVE" 2>/dev/null)" = "$SHA" ] && [ ! -f staged ]; then
+    echo "$(echo $SHA | cut -c1-8) is already live on $LIVE; nothing to promote."
+    exit 0
+  fi
+  [ "$(cat "sha-$IDLE" 2>/dev/null)" = "$SHA" ] || { echo "$SHA isn't what's staged on $IDLE" >&2; exit 2; }
+  healthy "$IDLE" || { echo "$IDLE isn't healthy" >&2; exit 1; }
+  switch_to "$IDLE" || { echo "switch failed, going back to $LIVE" >&2; switch_to "$LIVE"; exit 1; }
+  echo "$IDLE" > live-color
+  rm -f staged
+  for t in $(docker images taxglasses --format '{{.Tag}}' | grep -Ex '[0-9a-f]{40}'); do
+    grep -qx "$t" sha-blue sha-green 2>/dev/null || docker rmi -f "taxglasses:$t" >/dev/null
+  done
+  echo "Live: $(echo $SHA | cut -c1-8) on $IDLE. Rollback target: $LIVE ($(cut -c1-8 sha-$LIVE))" ;;
+rollback)
+  [ $# -eq 1 ] || exit 2
+  if [ -f staged ]; then
+    echo "A candidate ($(cut -c1-8 staged)) was staged on $IDLE after the last promote, so $IDLE is no" >&2
+    echo "longer the previous release. Rolling back now would put that candidate live. Promote it, or" >&2
+    echo "stage the previous release's SHA again and promote that." >&2
+    exit 1
+  fi
+  healthy "$IDLE" || { echo "$IDLE isn't running; nothing to roll back to" >&2; exit 1; }
+  switch_to "$IDLE"
+  echo "$IDLE" > live-color
+  echo "Rolled back. Live: $(cut -c1-8 sha-$IDLE) on $IDLE" ;;
+*) echo "usage: taxglasses-deploy stage <sha> | promote <sha> | rollback" >&2; exit 2 ;;
+esac

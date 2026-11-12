@@ -1,0 +1,16 @@
+source /etc/network/interfaces.d/*
+
+auto lo
+iface lo inet loopback
+
+# Wired uplink — takes over 192.168.0.6
+auto enp59s0
+iface enp59s0 inet static
+    address 192.168.0.6/24
+    gateway 192.168.0.1
+    dns-nameservers 192.168.0.1
+
+# Wifi as access point — static, no DHCP client
+auto wlp0s20f3
+iface wlp0s20f3 inet static
+    address 192.168.4.1/24

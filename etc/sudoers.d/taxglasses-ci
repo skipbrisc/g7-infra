@@ -1,0 +1,2 @@
+# TaxGlasses CI: buttmud (Claude Code over g7-taxglasses) may restart the Jenkins services.
+buttmud ALL=(root) NOPASSWD: /usr/bin/systemctl restart jenkins.service, /usr/bin/systemctl restart jenkins-agent.service

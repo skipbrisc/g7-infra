@@ -1,0 +1,3 @@
+# buttmud (you, Claude Code, Codex over SSH) may force an immediate GitHub mirror sync for the sites.
+# Deploys and rollbacks go through Jenkins (deploy-bot token), not sudo.
+buttmud ALL=(root) NOPASSWD: /usr/bin/systemctl start guatemalahope-mirror.service, /usr/bin/systemctl start aeraphim-mirror.service
