@@ -1,0 +1,4 @@
+Added user rules (see 'ufw status' for running firewall):
+ufw allow 3333/tcp
+ufw allow 51820/udp
+ufw route allow in on wg0 out on eno1

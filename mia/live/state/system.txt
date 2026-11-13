@@ -1,0 +1,39 @@
+captured: 2026-11-13T01:38:27Z
+hostname: mia
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+VERSION_ID="13"
+kernel: 6.12.116+deb13-amd64
+timezone: America/New_York
+ntp-synchronized: yes
+
+== services (is-enabled / is-active)
+ssh: enabled / active
+ufw: enabled / inactive
+wg-quick@wg0: enabled / active
+cron: enabled / active
+unattended-upgrades: enabled / active
+
+== addresses
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+eno1             UP             38.126.208.251/24 fe80::f603:43ff:fefd:4a7d/64 
+eno1d1           DOWN           
+wg0              UNKNOWN        10.78.0.1/24 
+
+== default route
+default via 38.126.208.1 dev eno1 onlink 
+
+== disks
+NAME          SIZE TYPE FSTYPE MOUNTPOINT
+nvme0n1     894.3G disk        
+├─nvme0n1p1     9M part        
+├─nvme0n1p2   513M part vfat   /boot/efi
+├─nvme0n1p3 878.8G part ext4   /
+└─nvme0n1p4  14.9G part swap   [SWAP]
+
+== root filesystem
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p3  864G   15G  806G   2% /
+
+== backup folders
+drwxr-xr-x 3 root     root     4096 Nov 12 17:51 /srv/backups
+drwx------ 3 g7backup g7backup 4096 Nov 12 18:13 /srv/backups/g7

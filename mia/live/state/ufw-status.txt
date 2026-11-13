@@ -1,0 +1,15 @@
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), deny (routed)
+New profiles: skip
+
+To                         Action      From
+--                         ------      ----
+3333/tcp                   ALLOW IN    Anywhere                  
+51820/udp                  ALLOW IN    Anywhere                  
+3333/tcp (v6)              ALLOW IN    Anywhere (v6)             
+51820/udp (v6)             ALLOW IN    Anywhere (v6)             
+
+Anywhere on eno1           ALLOW FWD   Anywhere on wg0           
+Anywhere (v6) on eno1      ALLOW FWD   Anywhere (v6) on wg0      
+

@@ -1,0 +1,8 @@
+port 3333
+permitrootlogin no
+pubkeyauthentication yes
+passwordauthentication no
+kbdinteractiveauthentication no
+allowusers buttmud
+allowusers g7backup@10.78.0.*
+subsystem sftp /usr/lib/openssh/sftp-server

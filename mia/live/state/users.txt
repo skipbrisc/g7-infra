@@ -1,0 +1,4 @@
+buttmud uid=1000 home=/home/buttmud shell=/bin/bash
+g7backup uid=1001 home=/home/g7backup shell=/bin/bash
+uid=1000(buttmud) gid=1000(buttmud) groups=1000(buttmud),27(sudo),100(users)
+uid=1001(g7backup) gid=1001(g7backup) groups=1001(g7backup),100(users)
