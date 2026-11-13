@@ -1,12 +1,15 @@
 #!/bin/sh
 # /usr/local/sbin/g7-backup on G7 (root:root 0700). Source: g7/backup/g7-backup in the g7-infra repo.
 # Nightly encrypted, deduplicated backup of G7's own state into a restic repository on the second
-# disk. Run by g7-backup.timer; run by hand with: sudo /usr/local/sbin/g7-backup
+# disk, then a copy of the snapshots to the off-site repository on the Miami server (over the
+# wg-mia tunnel, as g7backup; root's ~/.ssh/config has the mia-backup host).
+# Run by g7-backup.timer; run by hand with: sudo /usr/local/sbin/g7-backup
 set -eu
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export RESTIC_REPOSITORY=/mnt/data/G7-backups/restic
 export RESTIC_PASSWORD_FILE=/root/.restic-g7
 export RESTIC_CACHE_DIR=/var/cache/restic   # systemd runs this without $HOME
+OFFSITE=sftp:mia-backup:/srv/backups/g7/restic
 STAGE=/var/backups/g7-stage
 NTFY_TOKEN_FILE=/root/.ntfy-g7-token
 
@@ -32,6 +35,22 @@ if [ -f /opt/uptime-kuma/data/kuma.db ]; then
   sqlite3 /opt/uptime-kuma/data/kuma.db ".backup '$STAGE/uptime-kuma.db'" || echo "g7-backup: Uptime Kuma database copy skipped (monitor settings only; not fatal)" >&2
 fi
 
+# What a rebuild needs to know was installed.
+dpkg --get-selections > "$STAGE/dpkg-selections.txt" 2>/dev/null || true
+apt-mark showmanual > "$STAGE/apt-manual.txt" 2>/dev/null || true
+
+# Everything a rebuild needs. Paths that do not exist on this machine are skipped, and the
+# memesniper globs pick up new install and state folders without editing this file.
+PATHS=""
+for p in "$STAGE" /srv/git /srv/vaultwarden /var/lib/jenkins /var/lib/jenkins-agent \
+         /opt/taxglasses /opt/ntfy /opt/uptime-kuma /opt/memesniper* /var/lib/memesniper* \
+         /root /home/buttmud /etc /usr/local/sbin /var/backups/jenkins \
+         /var/spool/cron/crontabs /var/lib/docker/volumes \
+         /var/lib/bitcoind /var/lib/bitcoin; do
+  [ -e "$p" ] && PATHS="$PATHS $p"
+done
+
+# shellcheck disable=SC2086  # PATHS is a space-separated list of paths without spaces
 restic backup --one-file-system --tag nightly \
   --exclude /var/lib/memesniper/incoming \
   --exclude /var/lib/memesniper/imports \
@@ -40,9 +59,17 @@ restic backup --one-file-system --tag nightly \
   --exclude /var/lib/jenkins/workspace \
   --exclude /var/lib/jenkins/caches \
   --exclude /var/lib/jenkins/.cache \
+  --exclude /var/lib/jenkins-agent/workspace \
+  --exclude /var/lib/jenkins-agent/caches \
+  --exclude /var/lib/jenkins-agent/.cache \
+  --exclude /var/lib/jenkins-agent/.npm \
+  --exclude /root/.cache \
+  --exclude /home/buttmud/.cache \
+  --exclude .bitcoin/blocks --exclude .bitcoin/chainstate --exclude .bitcoin/indexes \
+  --exclude /var/lib/bitcoind/blocks --exclude /var/lib/bitcoind/chainstate --exclude /var/lib/bitcoind/indexes \
+  --exclude /var/lib/bitcoin/blocks --exclude /var/lib/bitcoin/chainstate --exclude /var/lib/bitcoin/indexes \
   --exclude '*.sqlite-shm' \
-  "$STAGE" /srv/git/repos /srv/vaultwarden /var/lib/jenkins /opt/taxglasses /opt/ntfy /opt/uptime-kuma \
-  /var/lib/memesniper /etc /usr/local/sbin /var/backups/jenkins \
+  $PATHS \
   || fail "restic backup failed (exit $?)"
 
 restic forget --keep-daily 14 --keep-weekly 8 --keep-monthly 6 --prune --quiet \
@@ -56,5 +83,16 @@ fi
 rm -rf "$STAGE"
 SNAP=$(restic snapshots --latest 1 --compact | awk 'NR==3{print $1}')
 FREE=$(df -h --output=avail /mnt/data | tail -1 | tr -d ' ')
-notify "G7 backup ok" "Snapshot $SNAP saved. Backup disk free: $FREE." low
-echo "g7-backup: snapshot $SNAP saved; $FREE free on /mnt/data"
+
+# Off-site: copy every snapshot Miami does not have yet, then apply the same retention there.
+# The local snapshot is already safe at this point; a failure here is reported as its own alert.
+restic -r "$OFFSITE" copy --from-repo "$RESTIC_REPOSITORY" --from-password-file "$RESTIC_PASSWORD_FILE" --quiet \
+  || fail "local snapshot $SNAP saved, but the copy to Miami failed"
+restic -r "$OFFSITE" forget --keep-daily 14 --keep-weekly 8 --keep-monthly 6 --prune --quiet \
+  || fail "local snapshot $SNAP saved and copied, but forget/prune on Miami failed"
+if [ "$(date +%u)" = 7 ]; then
+  restic -r "$OFFSITE" check --quiet || fail "restic check found a problem in the Miami repository"
+fi
+
+notify "G7 backup ok" "Snapshot $SNAP saved and copied to Miami. Backup disk free: $FREE." low
+echo "g7-backup: snapshot $SNAP saved and copied to Miami; $FREE free on /mnt/data"

@@ -7,12 +7,13 @@ here; the procedure has not been tested end to end.
 ## What you need besides this repository
 
 1. **The latest backup.** restic, nightly, in `/mnt/data/G7-backups/restic` on G7's second
-   disk (`g7/backup/README.md` lists what is in it and how to restore). An off-site copy is
-   planned and not set up yet.
+   disk (`g7/backup/README.md` lists what is in it and how to restore). The same snapshots are
+   copied each night to a second repository on the Miami server
+   (`sftp:mia-backup:/srv/backups/g7/restic`, reached from G7 over the wg-mia tunnel).
 2. **The restic repository password.** It is in Vaultwarden, but Vaultwarden's own data is
    inside the backup, so also keep it on paper.
-3. **The secrets below.** Files under `/etc` come back with the backup. `/root` is not in
-   the backup list, so those are recreated by hand.
+3. **The secrets below.** They all come back with the backup (`/etc`, `/root` and the
+   MemeSniper signer folder are in it); the last column is the fallback if it does not.
 
 | File on G7 | What it is | Where to get it |
 |---|---|---|
@@ -25,7 +26,7 @@ here; the procedure has not been tested end to end.
 | `/etc/memesniper-live/rpc.env` | MemeSniper live RPC credentials | `/etc` backup, or the Helius dashboard |
 | `/etc/taxglasses/jenkins-hook.env` | Credential the Git hook uses to start Jenkins jobs | `/etc` backup |
 | `jenkins-agent.service` (`-secret`) | Jenkins agent secret, redacted here | `/etc` backup, or the node's page in Jenkins |
-| `/var/lib/memesniper-signer/live-keypair.json` | MemeSniper live wallet. The only key; there is no seed phrase | Not in the nightly backup list. Restore from the encrypted off-site copy `memesniper-live-keypair.json.enc` |
+| `/var/lib/memesniper-signer/live-keypair.json` | MemeSniper live wallet. The only key; there is no seed phrase | In the backup. Also kept separately as the encrypted file `memesniper-live-keypair.json.enc` |
 
 Keypair restore (passphrase is on paper):
 
