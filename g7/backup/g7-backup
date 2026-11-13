@@ -81,7 +81,9 @@ if [ "$(date +%u)" = 7 ]; then
 fi
 
 rm -rf "$STAGE"
-SNAP=$(restic snapshots --latest 1 --compact | awk 'NR==3{print $1}')
+# "latest" names the newest snapshot whatever its path list (--latest 1 lists one per path list).
+SNAP=$(restic snapshots latest --compact 2>/dev/null | awk 'NR==3{print $1}')
+[ -n "$SNAP" ] || SNAP=latest
 FREE=$(df -h --output=avail /mnt/data | tail -1 | tr -d ' ')
 
 # Off-site: copy every snapshot Miami does not have yet, then apply the same retention there.
