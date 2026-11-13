@@ -1,0 +1,66 @@
+// Starter pipeline for a Node project on G7: scan, audit and test every push. No deploy.
+// Job: Pipeline script from SCM, this repository on G7, script path Jenkinsfile.
+// Credentials in Jenkins: 'g7-git-<slug>' (read-only key from g7-new-repo.sh), 'ntfy-token'.
+
+def NTFY_TOPIC = 'sites'   // ntfy topic for this project's alerts
+
+def notify(String topic, String title, String msg, String prio = 'default', String tags = '') {
+  // Phone alert through ntfy on G7. Never fails the build.
+  try {
+    withCredentials([string(credentialsId: 'ntfy-token', variable: 'NTFY_TOKEN')]) {
+      withEnv(["NTFY_TOPIC=${topic}", "NTFY_TITLE=${title}", "NTFY_MSG=${msg}", "NTFY_PRIO=${prio}", "NTFY_TAGS=${tags}", "NTFY_CLICK=${env.BUILD_URL ?: ''}"]) {
+        sh '''curl -fsS -m 10 -o /dev/null -H "Authorization: Bearer $NTFY_TOKEN" -H "Title: $NTFY_TITLE" -H "Priority: $NTFY_PRIO" -H "Tags: $NTFY_TAGS" -H "Click: $NTFY_CLICK" -d "$NTFY_MSG" "http://127.0.0.1:2586/$NTFY_TOPIC" || echo "ntfy: not sent"'''
+      }
+    }
+  } catch (err) {
+    echo "ntfy: not sent (${err})"
+  }
+}
+
+pipeline {
+  agent { label 'g7-worker' }
+
+  options {
+    disableConcurrentBuilds()
+    timestamps()
+    timeout(time: 30, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '30'))
+  }
+
+  triggers { pollSCM('H/2 * * * *') }
+
+  environment {
+    // Node 24, installed beside the system Node (g7-infra: g7/install-node24.sh). Keep .nvmrc the same.
+    PATH = "/opt/node24/bin:${env.PATH}"
+  }
+
+  stages {
+    stage('Security checks') {
+      steps {
+        // Whole Git history. Reviewed exceptions: .gitleaksignore.
+        sh '/usr/local/bin/gitleaks git --redact --no-banner .'
+      }
+    }
+    stage('Install') {
+      steps {
+        sh 'node -v && npm ci --no-audit --no-fund'
+      }
+    }
+    stage('Dependency audit') {
+      steps {
+        // Runtime dependencies: fail on a high or critical advisory.
+        sh 'npm audit --omit=dev --audit-level=high'
+      }
+    }
+    stage('Test') {
+      steps {
+        sh 'npm test'
+      }
+    }
+  }
+
+  post {
+    failure { script { notify(NTFY_TOPIC, "${env.JOB_NAME} failed", "Build ${env.BUILD_NUMBER} failed. Nothing was deployed.", 'high', 'warning') } }
+    fixed   { script { notify(NTFY_TOPIC, "${env.JOB_NAME} passing again", "Build ${env.BUILD_NUMBER} passed.", 'low', 'white_check_mark') } }
+  }
+}

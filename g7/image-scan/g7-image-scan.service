@@ -1,0 +1,10 @@
+[Unit]
+Description=G7 weekly container image vulnerability scan (grype, report only)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/g7-image-scan
+Nice=15
+IOSchedulingClass=idle

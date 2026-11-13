@@ -1,0 +1,28 @@
+# Dependencies and build output
+node_modules/
+dist/
+build/
+.next/
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# Secrets and local settings. Only the example is tracked.
+.env
+.env.*
+!.env.example
+.vercel
+secrets/
+*.pem
+*.key
+
+# Local state, logs and tool output
+*.log
+*.sqlite
+*.sqlite-*
+*.db
+.DS_Store
+.cache/
+test-results/
+playwright-report/

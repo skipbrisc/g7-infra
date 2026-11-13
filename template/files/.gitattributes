@@ -1,0 +1,5 @@
+# Store text with LF in the repository; check out with the platform's line endings.
+* text=auto
+*.sh text eol=lf
+Jenkinsfile text eol=lf
+*.ps1 text eol=crlf

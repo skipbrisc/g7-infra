@@ -1,0 +1,2 @@
+# Reviewed exceptions for the CI secret scan (gitleaks). One fingerprint per line, with a
+# comment above it saying what it is and why it is safe. Get the fingerprint from the build log.

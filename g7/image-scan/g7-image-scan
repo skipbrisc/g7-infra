@@ -1,0 +1,75 @@
+#!/bin/sh
+# /usr/local/sbin/g7-image-scan on G7 (root:root 0700). Source: g7/image-scan in the g7-infra repo.
+# Scans the image of every running container for known vulnerabilities that have a fix, and
+# alerts when any is high or critical. Report only: it changes no container and blocks no deploy.
+# Run by g7-image-scan.timer; by hand: sudo systemctl start g7-image-scan.service
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+WORK=/var/cache/imgscan
+LOG=/var/log/g7-image-scan.txt
+NTFY_TOKEN_FILE=/root/.ntfy-g7-token
+
+notify() { # title, message, priority
+  [ -r "$NTFY_TOKEN_FILE" ] || return 0
+  curl -fsS -m 10 -o /dev/null -H "Authorization: Bearer $(tr -d '[:space:]' < "$NTFY_TOKEN_FILE")" \
+    -H "Title: $1" -H "Priority: $3" -d "$2" http://127.0.0.1:2586/g7 || true
+}
+
+umask 077
+TAR=$WORK/tmp/image.tar; JSON=$WORK/tmp/report.json
+: > "$LOG.new"
+echo "G7 image scan, $(date '+%Y-%m-%d %H:%M %Z'). Fixable high and critical findings only." >> "$LOG.new"
+flagged=""; failed=""; count=0
+
+for img in $(docker ps --format '{{.Image}}' | sort -u); do
+  count=$((count + 1))
+  rm -f "$TAR" "$JSON"
+  if ! docker save "$img" -o "$TAR" 2>/dev/null; then failed="$failed $img"; continue; fi
+  chown imgscan:imgscan "$TAR"
+  # As the unprivileged scan user: no Docker access, no secrets, only this one file.
+  if ! runuser -u imgscan -- env HOME="$WORK" GRYPE_DB_CACHE_DIR="$WORK/db" GRYPE_CHECK_FOR_APP_UPDATE=false \
+       /usr/local/bin/grype "docker-archive:$TAR" --only-fixed -o json --file "$JSON" -q 2>/dev/null; then
+    failed="$failed $img"; rm -f "$TAR"; continue
+  fi
+  rm -f "$TAR"
+  n=$(python3 - "$JSON" "$img" "$LOG.new" <<'PY'
+import json, sys
+path, image, log = sys.argv[1:4]
+try:
+    matches = json.load(open(path)).get("matches", [])
+except Exception:
+    print("error"); sys.exit(0)
+rows = set()
+for m in matches:
+    v = m.get("vulnerability", {}); a = m.get("artifact", {})
+    if str(v.get("severity", "")).lower() in ("high", "critical"):
+        fixed = ", ".join((v.get("fix") or {}).get("versions") or []) or "see advisory"
+        rows.add((str(v.get("severity")), str(a.get("name")), str(a.get("version")), fixed, str(v.get("id"))))
+with open(log, "a") as out:
+    out.write("\n%s: %d\n" % (image, len(rows)))
+    for sev, name, ver, fix, vid in sorted(rows):
+        out.write("  %-8s %s %s -> %s  (%s)\n" % (sev, name, ver, fix, vid))
+print(len(rows))
+PY
+)
+  case "$n" in
+    error) failed="$failed $img" ;;
+    0) : ;;
+    *) flagged="$flagged $img($n)" ;;
+  esac
+done
+rm -f "$TAR" "$JSON"
+mv "$LOG.new" "$LOG"; chmod 600 "$LOG"
+
+if [ -n "$failed" ]; then
+  notify "G7 image scan incomplete" "Could not scan:$failed. Details: sudo journalctl -u g7-image-scan -n 30" high
+  echo "g7-image-scan: could not scan:$failed" >&2
+fi
+if [ -n "$flagged" ]; then
+  notify "G7 images need updating" "Fixable high or critical vulnerabilities in:$flagged. Report: sudo cat $LOG" high
+  echo "g7-image-scan: findings in:$flagged (see $LOG)"
+elif [ -z "$failed" ]; then
+  notify "G7 image scan ok" "$count images scanned, no fixable high or critical vulnerabilities." low
+  echo "g7-image-scan: $count images clean"
+fi
+[ -z "$failed" ]

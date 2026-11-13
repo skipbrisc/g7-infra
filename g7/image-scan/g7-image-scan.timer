@@ -1,0 +1,10 @@
+[Unit]
+Description=G7 container image scan, Mondays 04:30
+
+[Timer]
+OnCalendar=Mon 04:30
+Persistent=true
+Unit=g7-image-scan.service
+
+[Install]
+WantedBy=timers.target

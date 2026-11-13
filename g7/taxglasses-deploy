@@ -39,7 +39,8 @@ stage)
   # From here on the idle color stops being the rollback target.
   echo "$SHA" > staged
   git -C app checkout -q --detach "$SHA"
-  docker build -q --build-arg REVISION="$SHA" -t "taxglasses:$SHA" app >/dev/null
+  # --pull: always build on the current base image, so a redeploy picks up its security fixes.
+  docker build -q --pull --build-arg REVISION="$SHA" -t "taxglasses:$SHA" app >/dev/null
   docker tag "taxglasses:$SHA" "taxglasses:$IDLE"
   docker compose up -d --no-build --force-recreate "$IDLE"
   healthy "$IDLE" || { echo "$IDLE failed its health check; live ($LIVE) untouched" >&2; docker compose logs --tail=30 "$IDLE" >&2; exit 1; }

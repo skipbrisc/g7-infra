@@ -1,0 +1,80 @@
+// Starter pipeline for a Python project on G7: scan, audit and test every push. No deploy.
+// Job: Pipeline script from SCM, this repository on G7, script path Jenkinsfile.
+// Credentials in Jenkins: 'g7-git-<slug>' (read-only key from g7-new-repo.sh), 'ntfy-token'.
+// Expects requirements.lock (fully pinned) and tests under tests/ runnable by unittest.
+
+def NTFY_TOPIC = 'sites'   // ntfy topic for this project's alerts
+
+def notify(String topic, String title, String msg, String prio = 'default', String tags = '') {
+  // Phone alert through ntfy on G7. Never fails the build.
+  try {
+    withCredentials([string(credentialsId: 'ntfy-token', variable: 'NTFY_TOKEN')]) {
+      withEnv(["NTFY_TOPIC=${topic}", "NTFY_TITLE=${title}", "NTFY_MSG=${msg}", "NTFY_PRIO=${prio}", "NTFY_TAGS=${tags}", "NTFY_CLICK=${env.BUILD_URL ?: ''}"]) {
+        sh '''curl -fsS -m 10 -o /dev/null -H "Authorization: Bearer $NTFY_TOKEN" -H "Title: $NTFY_TITLE" -H "Priority: $NTFY_PRIO" -H "Tags: $NTFY_TAGS" -H "Click: $NTFY_CLICK" -d "$NTFY_MSG" "http://127.0.0.1:2586/$NTFY_TOPIC" || echo "ntfy: not sent"'''
+      }
+    }
+  } catch (err) {
+    echo "ntfy: not sent (${err})"
+  }
+}
+
+pipeline {
+  agent { label 'g7-worker' }
+
+  options {
+    disableConcurrentBuilds()
+    timestamps()
+    timeout(time: 30, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '30'))
+  }
+
+  triggers { pollSCM('H/2 * * * *') }
+
+  stages {
+    stage('Security checks') {
+      steps {
+        // Whole Git history. Reviewed exceptions: .gitleaksignore.
+        sh '/usr/local/bin/gitleaks git --redact --no-banner .'
+      }
+    }
+    stage('Install') {
+      steps {
+        // G7's system Python (3.13). Keep .python-version the same.
+        sh '''
+          set -e
+          python3 --version
+          rm -rf .ci-venv && python3 -m venv .ci-venv
+          .ci-venv/bin/pip install -q --upgrade pip
+          .ci-venv/bin/pip install -q -r requirements.lock
+        '''
+      }
+    }
+    stage('Dependency audit') {
+      steps {
+        // Its own venv, so the audit tool is not part of what the tests run against.
+        sh '''
+          set -e
+          rm -rf .audit-venv && python3 -m venv .audit-venv
+          .audit-venv/bin/pip install -q --upgrade pip pip-audit
+          .audit-venv/bin/pip-audit -r requirements.lock --no-deps --disable-pip
+        '''
+      }
+    }
+    stage('Test (no network)') {
+      steps {
+        // A private network namespace with only loopback, and a scratch HOME.
+        sh '''
+          set -e
+          mkdir -p .ci-home
+          HOME="$PWD/.ci-home" nice -n 15 unshare -rn sh -c \
+            'ip link set lo up && exec .ci-venv/bin/python -B -m unittest discover -s tests'
+        '''
+      }
+    }
+  }
+
+  post {
+    failure { script { notify(NTFY_TOPIC, "${env.JOB_NAME} failed", "Build ${env.BUILD_NUMBER} failed. Nothing was deployed.", 'high', 'warning') } }
+    fixed   { script { notify(NTFY_TOPIC, "${env.JOB_NAME} passing again", "Build ${env.BUILD_NUMBER} passed.", 'low', 'white_check_mark') } }
+  }
+}
