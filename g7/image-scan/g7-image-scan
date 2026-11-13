@@ -16,21 +16,30 @@ notify() { # title, message, priority
 }
 
 umask 077
-TAR=$WORK/tmp/image.tar; JSON=$WORK/tmp/report.json
+TAR=$WORK/tmp/image.tar; JSON=$WORK/tmp/report.json; ERR=$WORK/tmp/scan-error.txt
 : > "$LOG.new"
-echo "G7 image scan, $(date '+%Y-%m-%d %H:%M %Z'). Fixable high and critical findings only." >> "$LOG.new"
+echo "G7 image scan, $(date '+%Y-%m-%d %H:%M %Z'). Fixable high and critical findings only, one line per package." >> "$LOG.new"
 flagged=""; failed=""; count=0
 
 for img in $(docker ps --format '{{.Image}}' | sort -u); do
   count=$((count + 1))
-  rm -f "$TAR" "$JSON"
-  if ! docker save "$img" -o "$TAR" 2>/dev/null; then failed="$failed $img"; continue; fi
+  rm -f "$TAR" "$JSON" "$ERR"
+  install -o imgscan -g imgscan -m 0600 /dev/null "$ERR"
+  if ! docker save "$img" -o "$TAR" 2>"$ERR"; then
+    echo "g7-image-scan: docker save $img failed: $(tail -n 2 "$ERR" | tr '\n' ' ' | cut -c1-300)" >&2
+    failed="$failed $img"; continue
+  fi
   chown imgscan:imgscan "$TAR"
   # As the unprivileged scan user: no Docker access, no secrets, only this one file.
-  if ! runuser -u imgscan -- env HOME="$WORK" GRYPE_DB_CACHE_DIR="$WORK/db" GRYPE_CHECK_FOR_APP_UPDATE=false \
-       /usr/local/bin/grype "docker-archive:$TAR" --only-fixed -o json --file "$JSON" -q 2>/dev/null; then
-    failed="$failed $img"; rm -f "$TAR"; continue
-  fi
+  # An image built with provenance attestations is exported in OCI layout, so try that reader
+  # second. On failure the scanner's last lines go to the journal, since they say why.
+  ok=""
+  for kind in docker-archive oci-archive; do
+    if runuser -u imgscan -- env HOME="$WORK" GRYPE_DB_CACHE_DIR="$WORK/db" GRYPE_CHECK_FOR_APP_UPDATE=false \
+         /usr/local/bin/grype "$kind:$TAR" --only-fixed -o json --file "$JSON" -q 2>"$ERR"; then ok=1; break; fi
+    echo "g7-image-scan: $img as $kind failed: $(tail -n 3 "$ERR" 2>/dev/null | tr '\n' ' ' | cut -c1-400)" >&2
+  done
+  if [ -z "$ok" ]; then failed="$failed $img"; rm -f "$TAR"; continue; fi
   rm -f "$TAR"
   n=$(python3 - "$JSON" "$img" "$LOG.new" <<'PY'
 import json, sys
@@ -39,16 +48,31 @@ try:
     matches = json.load(open(path)).get("matches", [])
 except Exception:
     print("error"); sys.exit(0)
-rows = set()
+seen = set(); groups = {}
 for m in matches:
     v = m.get("vulnerability", {}); a = m.get("artifact", {})
-    if str(v.get("severity", "")).lower() in ("high", "critical"):
-        fixed = ", ".join((v.get("fix") or {}).get("versions") or []) or "see advisory"
-        rows.add((str(v.get("severity")), str(a.get("name")), str(a.get("version")), fixed, str(v.get("id"))))
+    sev = str(v.get("severity", "")).lower()
+    if sev not in ("high", "critical"):
+        continue
+    key = (str(a.get("name")), str(a.get("version")), str(v.get("id")))
+    if key in seen:
+        continue
+    seen.add(key)
+    g = groups.setdefault(key[:2], {"critical": 0, "high": 0, "fixes": set()})
+    g[sev] += 1
+    g["fixes"].update((v.get("fix") or {}).get("versions") or [])
+rows = seen
+# One line per package, worst first: the remedy is per package (a newer image), not per CVE.
+order = sorted(groups.items(), key=lambda kv: (-kv[1]["critical"], -kv[1]["high"], kv[0]))
 with open(log, "a") as out:
-    out.write("\n%s: %d\n" % (image, len(rows)))
-    for sev, name, ver, fix, vid in sorted(rows):
-        out.write("  %-8s %s %s -> %s  (%s)\n" % (sev, name, ver, fix, vid))
+    out.write("\n%s: %d findings in %d packages\n" % (image, len(rows), len(groups)))
+    for (name, ver), g in order:
+        counts = ", ".join("%d %s" % (g[k], k) for k in ("critical", "high") if g[k])
+        fixes = sorted(g["fixes"])
+        fix = fixes[-1] if fixes else "see advisory"
+        if len(fixes) > 1:
+            fix += " (or another of %d fixed versions)" % len(fixes)
+        out.write("  %-28s %-34s %-22s fixed in %s\n" % (name[:28], ver[:34], counts, fix))
 print(len(rows))
 PY
 )
@@ -58,7 +82,7 @@ PY
     *) flagged="$flagged $img($n)" ;;
   esac
 done
-rm -f "$TAR" "$JSON"
+rm -f "$TAR" "$JSON" "$ERR"
 mv "$LOG.new" "$LOG"; chmod 600 "$LOG"
 
 if [ -n "$failed" ]; then
