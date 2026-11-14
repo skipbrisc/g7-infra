@@ -23,11 +23,18 @@ flagged=""; failed=""; count=0
 
 for img in $(docker ps --format '{{.Image}}' | sort -u); do
   count=$((count + 1))
+  # A container started before its image was rebuilt shows a bare image ID here, not a name.
+  # Name the container in every message so the report says what to recreate.
+  label=$img
+  case "$img" in
+    *[!0-9a-f]*) : ;;
+    *) label="$img (untagged; container $(docker ps --filter "ancestor=$img" --format '{{.Names}}' | tr '\n' ' ' | sed 's/ $//'); recreate it to run its rebuilt image)" ;;
+  esac
   rm -f "$TAR" "$JSON" "$ERR"
   install -o imgscan -g imgscan -m 0600 /dev/null "$ERR"
   if ! docker save "$img" -o "$TAR" 2>"$ERR"; then
     echo "g7-image-scan: docker save $img failed: $(tail -n 2 "$ERR" | tr '\n' ' ' | cut -c1-300)" >&2
-    failed="$failed $img"; continue
+    failed="$failed [$label]"; continue
   fi
   chown imgscan:imgscan "$TAR"
   # As the unprivileged scan user: no Docker access, no secrets, only this one file.
@@ -39,7 +46,7 @@ for img in $(docker ps --format '{{.Image}}' | sort -u); do
          /usr/local/bin/grype "$kind:$TAR" --only-fixed -o json --file "$JSON" -q 2>"$ERR"; then ok=1; break; fi
     echo "g7-image-scan: $img as $kind failed: $(tail -n 3 "$ERR" 2>/dev/null | tr '\n' ' ' | cut -c1-400)" >&2
   done
-  if [ -z "$ok" ]; then failed="$failed $img"; rm -f "$TAR"; continue; fi
+  if [ -z "$ok" ]; then failed="$failed [$label]"; rm -f "$TAR"; continue; fi
   rm -f "$TAR"
   n=$(python3 - "$JSON" "$img" "$LOG.new" <<'PY'
 import json, sys
@@ -77,7 +84,7 @@ print(len(rows))
 PY
 )
   case "$n" in
-    error) failed="$failed $img" ;;
+    error) failed="$failed [$label]" ;;
     0) : ;;
     *) flagged="$flagged $img($n)" ;;
   esac
