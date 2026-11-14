@@ -19,6 +19,8 @@ only; use `--dry-run` the first time.
        ssh -t g7 "sudo bash /tmp/g7-new-repo.sh <RepoName> <github-owner>/<repo> --dry-run"
        ssh -t g7 "sudo bash /tmp/g7-new-repo.sh <RepoName> <github-owner>/<repo>"
 
+   For a repository that is already on G7 and only lacks a GitHub mirror, add `--mirror-only`.
+
    It prints the remaining manual steps, including the Healthchecks slug to create.
 4. **Push from the PC.** G7 is the only remote you push to; it publishes to GitHub.
 

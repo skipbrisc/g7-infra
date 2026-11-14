@@ -5,12 +5,21 @@
 #   * Healthchecks.io ping after each successful mirror push (slug <slug>-mirror)
 #   * a read-only SSH key for Jenkins, locked to this one repository
 # Run as root on G7:
-#   bash g7-new-repo.sh <RepoName> <github-owner>/<repo> [--dry-run]
+#   bash g7-new-repo.sh <RepoName> <github-owner>/<repo> [--dry-run] [--mirror-only]
+#   --mirror-only   for a repository that already exists on G7 and has (or needs) no Jenkins
+#                   job: adds only the GitHub mirror and its Healthchecks ping
 # Idempotent: re-running skips what is already done. Touches no other project.
 set -euo pipefail
 
-[[ $# -ge 2 ]] || { echo "usage: $0 <RepoName> <github-owner>/<repo> [--dry-run]" >&2; exit 1; }
-NAME=$1; GITHUB=$2; DRY=0; [[ "${3:-}" == "--dry-run" ]] && DRY=1
+[[ $# -ge 2 ]] || { echo "usage: $0 <RepoName> <github-owner>/<repo> [--dry-run] [--mirror-only]" >&2; exit 1; }
+NAME=$1; GITHUB=$2; shift 2; DRY=0; MIRROR_ONLY=0
+for a in "$@"; do
+  case "$a" in
+    --dry-run) DRY=1 ;;
+    --mirror-only) MIRROR_ONLY=1 ;;
+    *) echo "unknown option: $a" >&2; exit 1 ;;
+  esac
+done
 [[ "$NAME" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "bad repository name: $NAME" >&2; exit 1; }
 [[ "$GITHUB" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || { echo "bad GitHub path: $GITHUB" >&2; exit 1; }
 SLUG=$(printf '%s' "$NAME" | tr 'A-Z' 'a-z' | tr -c 'a-z0-9\n' '-' | sed 's/-\+/-/g; s/^-//; s/-$//')
@@ -77,11 +86,14 @@ ExecStartPost=+/usr/local/sbin/g7-hc-ping $SLUG-mirror"
 run systemctl daemon-reload
 run systemctl enable --now "$SLUG-mirror.timer"
 
-say "Jenkins read-only key, locked to this repository"
 JKEY=$KEYDIR/$SLUG-jenkins
-if (( DRY )); then
+if (( MIRROR_ONLY )); then
+  say "Jenkins key: skipped (--mirror-only)"
+elif (( DRY )); then
+  say "Jenkins read-only key, locked to this repository"
   note "would create $JKEY and authorize it for git-upload-pack on $BARE only"
 else
+  say "Jenkins read-only key, locked to this repository"
   mkdir -p -m 700 "$KEYDIR"
   [[ -f "$JKEY" ]] || { ssh-keygen -q -t ed25519 -N '' -C "jenkins-$SLUG" -f "$JKEY"; note "generated $JKEY"; }
   AUTH=$GIT_HOME/.ssh/authorized_keys
@@ -97,13 +109,17 @@ fi
 say "Left to do by hand"
 cat <<TXT
     1. GitHub: the empty private repository $GITHUB must exist. The mirror starts working on
-       its own once it does and something has been pushed to G7. Check with:
+       its own once it does and the G7 repository has commits. Check with:
          journalctl -u $SLUG-mirror.service -n 5 --no-pager
     2. Healthchecks.io: create a check with slug  $SLUG-mirror  (period 5 minutes, grace 30).
-    3. Jenkins: add a credential (SSH Username with private key, username 'git',
+    3. Copy the three unit files into the g7-infra repository (systemd/) and commit.
+TXT
+if (( ! MIRROR_ONLY )); then
+cat <<TXT
+    4. Jenkins: add a credential (SSH Username with private key, username 'git',
        id g7-git-$SLUG) with the private key from:   sudo cat $JKEY
        Then create the Pipeline job from SCM with the repository URL
          ssh://git@127.0.0.1:3333$BARE
-    4. On the PC:  git remote add g7 ssh://git@192.168.0.6:3333$BARE
-    5. Copy the three unit files into the g7-infra repository (systemd/) and commit.
+    5. On the PC:  git remote add g7 ssh://git@192.168.0.6:3333$BARE
 TXT
+fi

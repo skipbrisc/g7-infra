@@ -16,7 +16,11 @@ TARBALL=$(grep -oE 'node-v24\.[0-9]+\.[0-9]+-linux-x64\.tar\.xz' SHASUMS256.txt 
 curl -fsSL -o "$TARBALL" "$BASE/$TARBALL"
 grep " $TARBALL\$" SHASUMS256.txt | sha256sum -c -
 rm -rf "$DEST.new"; mkdir -p "$DEST.new"
-tar -xJf "$TARBALL" -C "$DEST.new" --strip-components=1
+# --no-same-owner: as root, tar would otherwise keep the user and group IDs recorded in the
+# archive, leaving the binary owned (and writable) by whichever local account has that ID.
+tar -xJf "$TARBALL" -C "$DEST.new" --strip-components=1 --no-same-owner
+chown -R root:root "$DEST.new"
+chmod -R go-w "$DEST.new"
 rm -rf "$DEST.old"; [ -d "$DEST" ] && mv "$DEST" "$DEST.old"
 mv "$DEST.new" "$DEST"; rm -rf "$DEST.old"
 chmod -R a+rX "$DEST"
