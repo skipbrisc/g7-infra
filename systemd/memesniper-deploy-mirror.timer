@@ -1,0 +1,10 @@
+[Unit]
+Description=Sync memesniper-deploy to GitHub every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+Unit=memesniper-deploy-mirror.service
+
+[Install]
+WantedBy=timers.target
