@@ -30,9 +30,14 @@ here; the procedure has not been tested end to end.
 
 Keypair restore (passphrase is on paper):
 
-    openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in memesniper-live-keypair.json.enc -out live-keypair.json
+    umask 077
+    d=$(mktemp -d)
+    openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in memesniper-live-keypair.json.enc -out "$d/live-keypair.json"
+    sha256sum "$d/live-keypair.json"
 
-Its SHA-256 must be `338c18faee6ea23d1b788907c9c2ee51c8a28ed00abe1e54596eef5f4d509520`.
+Its SHA-256 must be `338c18faee6ea23d1b788907c9c2ee51c8a28ed00abe1e54596eef5f4d509520`. Check the
+public address too, then install it owned by `memesniper-signer`, mode 0600. Never restore
+over an existing key.
 
 ## Order
 
