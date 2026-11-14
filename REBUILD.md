@@ -70,6 +70,7 @@ Its SHA-256 must be `338c18faee6ea23d1b788907c9c2ee51c8a28ed00abe1e54596eef5f4d5
 | `systemd/` | Unit files, timers and drop-ins as they are on G7 (secrets redacted) |
 | `etc/` | Live configs and `/usr/local/sbin` scripts as they are on G7 (keys redacted) |
 | `g7/` | Install scripts and READMEs for backup, Healthchecks, ntfy, Uptime Kuma, CI tools |
+| `runbooks/` | One page per service: check, deploy, roll back, logs, restart. Plus the MemeSniper go-live gates |
 | `sites/`, `vaultwarden/` | Setup scripts and notes for the websites' pipelines and Vaultwarden |
 | `G7-NETWORK.md`, `VAULT-CHECKLIST.md` | Network layout and the Vaultwarden contents checklist |
 
