@@ -39,6 +39,8 @@ fi
 dpkg --get-selections > "$STAGE/dpkg-selections.txt" 2>/dev/null || true
 apt-mark showmanual > "$STAGE/apt-manual.txt" 2>/dev/null || true
 
+# /srv/media-masters holds raw footage and promotions work copied up from the PC
+# (guatemalahope.org: scripts/backup-raw-media.ps1). It is not in Git anywhere.
 # Everything a rebuild needs. Paths that do not exist on this machine are skipped, and the
 # memesniper globs pick up new install and state folders without editing this file.
 PATHS=""
@@ -46,6 +48,7 @@ for p in "$STAGE" /srv/git /srv/vaultwarden /var/lib/jenkins /var/lib/jenkins-ag
          /opt/taxglasses /opt/ntfy /opt/uptime-kuma /opt/memesniper* /var/lib/memesniper* \
          /root /home/buttmud /etc /usr/local/sbin /var/backups/jenkins \
          /var/spool/cron/crontabs /var/lib/docker/volumes \
+         /srv/media-masters \
          /var/lib/bitcoind /var/lib/bitcoin; do
   [ -e "$p" ] && PATHS="$PATHS $p"
 done

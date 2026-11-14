@@ -11,7 +11,8 @@ workspaces or caches), `/opt/taxglasses`, `/opt/ntfy` (+ its user database), `/o
 signer's live keypair and the Tier 2 folders are included; `/var/lib/memesniper` goes without
 `incoming/`, `imports/`, `.npm/`, `migration-tools/`), `/root` (the restic, ntfy and
 Healthchecks secrets and the Miami backup key), `/home/buttmud`, `/etc`, `/usr/local/sbin`,
-`/var/backups/jenkins`, user crontabs, the Docker named volumes (Caddy's certificates and
+`/var/backups/jenkins`, `/srv/media-masters` (raw footage and promotions work copied up
+from the PC, which Git does not hold), user crontabs, the Docker named volumes (Caddy's certificates and
 state), and the list of installed packages. A Bitcoin Core data folder is
 included if one exists, without the block chain itself.
 
