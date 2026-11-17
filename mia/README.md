@@ -60,7 +60,7 @@ other, G7 or the home network.
 
 ## Refreshing the live copy
 
-From `D:\TaxGlasses-ops` in PowerShell, one command at a time:
+From `D:\g7-infra` in PowerShell, one command at a time:
 
     scp mia/capture.sh mia:/tmp/mia-capture.sh
     ssh -t mia "sudo sh /tmp/mia-capture.sh; rm -f /tmp/mia-capture.sh"

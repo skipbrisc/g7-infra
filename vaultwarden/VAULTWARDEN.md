@@ -18,7 +18,7 @@ Self-hosted Bitwarden server. Use the normal **Bitwarden** apps (Windows, browse
 
 **2. Dry run, then install** (from PowerShell):
 ```powershell
-scp -P 3333 D:\TaxGlasses-ops\vaultwarden\setup-vaultwarden.sh buttmud@192.168.0.6:/tmp/
+scp -P 3333 D:\g7-infra\vaultwarden\setup-vaultwarden.sh buttmud@192.168.0.6:/tmp/
 ssh -t -p 3333 buttmud@192.168.0.6 "sudo bash /tmp/setup-vaultwarden.sh --dry-run"
 ssh -t -p 3333 buttmud@192.168.0.6 "sudo bash /tmp/setup-vaultwarden.sh"
 ```
@@ -61,8 +61,8 @@ That key can only download `latest.tar.gz` — it can't open a shell or touch an
 
 **3. Test, then schedule daily:**
 ```powershell
-D:\TaxGlasses-ops\vaultwarden\pull-vault-backup.cmd
-Register-ScheduledTask -TaskName "Vault backup pull" -Action (New-ScheduledTaskAction -Execute "D:\TaxGlasses-ops\vaultwarden\pull-vault-backup.cmd") -Trigger (New-ScheduledTaskTrigger -Daily -At 9am) -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -RunOnlyIfNetworkAvailable)
+D:\g7-infra\vaultwarden\pull-vault-backup.cmd
+Register-ScheduledTask -TaskName "Vault backup pull" -Action (New-ScheduledTaskAction -Execute "D:\g7-infra\vaultwarden\pull-vault-backup.cmd") -Trigger (New-ScheduledTaskTrigger -Daily -At 9am) -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -RunOnlyIfNetworkAvailable)
 ```
 Runs when the PC is on and can reach G7; missed days catch up. Copies older than 60 days are pruned.
 

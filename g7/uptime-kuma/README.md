@@ -8,7 +8,7 @@ It runs ON G7, so it cannot tell you G7 itself is down. That is Healthchecks.io'
 
 ## Install (root, once)
 
-From `D:\TaxGlasses-ops` in PowerShell, one command at a time:
+From `D:\g7-infra` in PowerShell, one command at a time:
 
     scp g7/uptime-kuma/docker-compose.yml g7-taxglasses:/tmp/kuma-compose.yml
 

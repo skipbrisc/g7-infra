@@ -23,7 +23,7 @@ access as possible:
 
 ## Install (root, once)
 
-From `D:\TaxGlasses-ops` in PowerShell:
+From `D:\g7-infra` in PowerShell:
 
     ssh g7 "rm -rf /tmp/g7-image-scan && mkdir /tmp/g7-image-scan"
     scp g7/image-scan/install.sh g7/image-scan/g7-image-scan g7/image-scan/g7-image-scan.service g7/image-scan/g7-image-scan.timer g7:/tmp/g7-image-scan/

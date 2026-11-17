@@ -17,7 +17,7 @@ Ping key) is in `/root/.healthchecks-ping-key` on G7 and in Vaultwarden, nowhere
 ## Install (root, once)
 
 Create the three checks on healthchecks.io first, with exactly these slugs. Then from
-`D:\TaxGlasses-ops` in PowerShell, one command at a time:
+`D:\g7-infra` in PowerShell, one command at a time:
 
     ssh g7-taxglasses "rm -rf /tmp/g7-healthchecks && mkdir /tmp/g7-healthchecks"
 

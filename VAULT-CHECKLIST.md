@@ -53,9 +53,9 @@ No secret values are in this file — only where to get them.
 | 40 | ☐ | Claude / Anthropic | Accounts | Login | your email | `https://claude.ai` | Password (+ API keys as custom fields if any) | You know it |
 | 41 | ☐ | OpenAI / Codex | Accounts | Login | your email | `https://chatgpt.com` | Password (+ API keys if any) | You know it |
 | 42 | ☐ | Email | Accounts | Login | your email | provider site | Password + recovery codes in notes | Provider's security page |
-| 43 | ☐ | Doc – G7 Network | Docs | Secure note | — | — | Attach file | `D:\TaxGlasses-ops\G7-NETWORK.md` |
-| 44 | ☐ | Doc – Vaultwarden runbook | Docs | Secure note | — | — | Attach file | `D:\TaxGlasses-ops\vaultwarden\VAULTWARDEN.md` |
-| 45 | ☐ | Doc – Sites pipeline | Docs | Secure note | — | — | Attach file | `D:\TaxGlasses-ops\sites\SITES-SETUP.md` |
+| 43 | ☐ | Doc – G7 Network | Docs | Secure note | — | — | Attach file | `D:\g7-infra\G7-NETWORK.md` |
+| 44 | ☐ | Doc – Vaultwarden runbook | Docs | Secure note | — | — | Attach file | `D:\g7-infra\vaultwarden\VAULTWARDEN.md` |
+| 45 | ☐ | Doc – Sites pipeline | Docs | Secure note | — | — | Attach file | `D:\g7-infra\sites\SITES-SETUP.md` |
 | 46 | ☐ | Doc – MemeSniper deploy | Docs | Secure note | — | — | Attach file | `D:\memesniper-deploy\SETUP.md` |
 
 ## Quick reference

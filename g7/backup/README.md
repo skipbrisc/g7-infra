@@ -26,7 +26,7 @@ Alerts: ntfy topic `g7` (subscribe on the phone), low on success, high on failur
 
 ## Install (once)
 
-From `D:\TaxGlasses-ops`, one command at a time:
+From `D:\g7-infra`, one command at a time:
 
     scp -r g7/backup g7-taxglasses:/tmp/g7-backup
     ssh -t g7-taxglasses "sudo sh /tmp/g7-backup/install.sh"

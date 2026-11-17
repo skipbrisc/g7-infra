@@ -27,7 +27,7 @@ Once G7 mirrors to GitHub, Vercel's GitHub integration would also deploy every p
 ## 2. Server setup
 
 ```bash
-scp -P 3333 D:\TaxGlasses-ops\sites\setup-g7-sites.sh buttmud@192.168.0.6:/tmp/     # from Windows
+scp -P 3333 D:\g7-infra\sites\setup-g7-sites.sh buttmud@192.168.0.6:/tmp/     # from Windows
 sudo bash /tmp/setup-g7-sites.sh --dry-run     # on G7: shows every change, touches nothing
 sudo bash /tmp/setup-g7-sites.sh               # add --with-browsers to run Aeraphim's Playwright tests too
 ```

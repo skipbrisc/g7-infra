@@ -6,7 +6,7 @@
 
 ## Installing a change
 
-From `D:\TaxGlasses-ops` in PowerShell, after the change is committed:
+From `D:\g7-infra` in PowerShell, after the change is committed:
 
     scp g7/taxglasses-deploy g7-taxglasses:/tmp/taxglasses-deploy
     ssh -t g7-taxglasses "sudo -v && sudo diff -u /usr/local/sbin/taxglasses-deploy /tmp/taxglasses-deploy; sudo sh -n /tmp/taxglasses-deploy && sudo install -o root -g root -m 0755 /tmp/taxglasses-deploy /usr/local/sbin/taxglasses-deploy && rm -f /tmp/taxglasses-deploy && echo installed"

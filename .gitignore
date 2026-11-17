@@ -1,3 +1,4 @@
 # Captured output, not configuration; may contain host details. Kept on the PC only.
 g7-netdump.txt
 setup-*.log
+__pycache__/
