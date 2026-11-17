@@ -100,16 +100,16 @@ twin  g7-infra:g7/healthchecks/g7-heartbeat.timer  g7-infra:systemd/g7-heartbeat
 twin  g7-infra:g7/healthchecks/ping-backup.conf  g7-infra:systemd/g7-backup.service.d/healthchecks.conf
 twin  g7-infra:g7/healthchecks/ping-mirror.conf  g7-infra:systemd/taxglasses-mirror.service.d/healthchecks.conf
 
-# --- Jenkins jobs (TaxGlasses-Rollback is not in Git yet: Phase 3 adds it).
+# --- Jenkins jobs
 # The website jobs read their pipelines from their own repositories.
 job  TaxGlasses-CI  TaxGlasses:ops/jenkins/TaxGlasses-CI.Jenkinsfile
 job  TaxGlasses-Deploy  TaxGlasses:ops/jenkins/TaxGlasses-Deploy.Jenkinsfile
 job  TaxGlasses-Nightly  TaxGlasses:ops/jenkins/TaxGlasses-Nightly.Jenkinsfile
+job  TaxGlasses-Rollback  TaxGlasses:ops/jenkins/TaxGlasses-Rollback.Jenkinsfile
 job-scm  Aeraphim-Deploy  Jenkinsfile
 job-scm  GuatemalaHope-Deploy  Jenkinsfile
 
 # --- on G7 and deliberately not in Git (add "ignore <path>" lines here, with a reason)
-ignore-job   TaxGlasses-Rollback    # until Phase 3 puts its pipeline in TaxGlasses ops/jenkins/
 
 # --- MemeSniper's: in the memesniper-deploy repository, never checked here.
 # The GitHub mirror units for its repositories are the Git server's and are listed above;
