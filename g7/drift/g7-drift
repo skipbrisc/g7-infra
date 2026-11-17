@@ -191,6 +191,41 @@ def protected(path):
     return any(path.startswith(p) for p in PROTECTED)
 
 
+MAX_READ = 16 * 1024 * 1024
+
+
+def read_live(path):
+    """Read a file on G7 only if no part of its path is a symlink and neither the path nor where it
+    resolves is protected. Returns (stat, bytes) or (None, reason)."""
+    real = os.path.realpath(path)
+    if real != path:
+        return None, f'its path goes through a symlink (to {real}), so it is not read'
+    if protected(real):
+        return None, 'protected path: its contents are never read'
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    except FileNotFoundError:
+        return None, 'missing'
+    except OSError as error:
+        return None, f'cannot open it ({error.strerror})'
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode):
+            return None, 'not a regular file'
+        if st.st_size > MAX_READ:
+            return None, f'larger than {MAX_READ} bytes, so it is not read'
+        chunks, size = [], 0
+        while size <= MAX_READ:
+            block = os.read(fd, 1 << 20)
+            if not block:
+                break
+            chunks.append(block)
+            size += len(block)
+        return st, b''.join(chunks)
+    finally:
+        os.close(fd)
+
+
 # ---------------------------------------------------------------- files, twins, coverage
 
 def check_file(e, repos, rep):
@@ -200,12 +235,11 @@ def check_file(e, repos, rep):
         return rep.find('missing in Git', f'{repo}:{path}', f'MAP maps it to {live}')
     if protected(live):
         return rep.find('refused', live, 'protected path: its contents are never read')
-    try:
-        st = os.lstat(live)
-    except FileNotFoundError:
-        return rep.find('missing on G7', live, f'Git has {repo}:{path}')
-    if not stat.S_ISREG(st.st_mode):
-        return rep.find('not a regular file on G7', live)
+    st, data = read_live(live)
+    if st is None:
+        if data == 'missing':
+            return rep.find('missing on G7', live, f'Git has {repo}:{path}')
+        return rep.find('refused' if 'not read' in data else 'cannot compare', live, data)
     owner, mode = owner_of(st), f'{stat.S_IMODE(st.st_mode):04o}'
     if e['owner'] != '-' and owner != e['owner']:
         rep.find('owner differs', live, f'G7 {owner}, MAP {e["owner"]}')
@@ -213,7 +247,7 @@ def check_file(e, repos, rep):
         rep.find('mode differs', live, f'G7 {mode}, MAP {e["mode"]}')
     if '-' in (e['owner'], e['mode']):
         rep.notes.append(f'owner/mode not in MAP: {live} is {owner} {mode}')
-    have = text_of(Path(live).read_bytes())
+    have = text_of(data)
     if 'live-caddy' in e['flags']:
         line = have.strip()
         if line in LIVE_CADDY:
@@ -275,7 +309,10 @@ def check_unmanaged(m, rep):
 # ---------------------------------------------------------------- Jenkins
 
 def job_definition(name):
-    text = (JOBS / name / 'config.xml').read_text(encoding='utf-8', errors='replace')
+    cfg = JOBS / name / 'config.xml'
+    if os.path.realpath(cfg) != str(cfg):
+        raise RuntimeError(f'{cfg} goes through a symlink; not read')
+    text = cfg.read_text(encoding='utf-8', errors='replace')
     root = ET.fromstring(re.sub(r'^\s*<\?xml[^>]*\?>', '', text))
     d = root.find('definition')
     cls = d.get('class', '') if d is not None else ''
@@ -369,17 +406,46 @@ def save(text):
         old.unlink()
 
 
-def notify(title, body, priority, tags):
+def ntfy_token():
     try:
         token = NTFY_TOKEN.read_text().strip()
-    except OSError:
-        return
+    except OSError as error:
+        print(f'g7-drift: cannot read the ntfy token {NTFY_TOKEN} ({error.strerror})', file=sys.stderr)
+        return None
+    if not token:
+        print(f'g7-drift: the ntfy token {NTFY_TOKEN} is empty', file=sys.stderr)
+    return token or None
+
+
+def notify(title, body, priority, tags):
+    """Send one alert. Returns False, and says why, if it could not be delivered."""
+    token = ntfy_token()
+    if token is None:
+        return False
     req = urllib.request.Request(NTFY_URL, data=body.encode(), method='POST', headers={
         'Authorization': f'Bearer {token}', 'Title': title, 'Priority': priority, 'Tags': tags})
     try:
         urllib.request.urlopen(req, timeout=10).read()
-    except Exception as error:  # an alert that cannot be sent must not hide the result
-        print(f'g7-drift: ntfy not sent ({error})', file=sys.stderr)
+        return True
+    except Exception as error:
+        print(f'g7-drift: ntfy alert NOT delivered ({error})', file=sys.stderr)
+        return False
+
+
+def alert_path_ready():
+    """On a clean night nothing is sent, so prove the alert path at least exists: a readable token and
+    a healthy ntfy. It cannot prove the token may post to the topic; a real alert does that."""
+    if ntfy_token() is None:
+        return False
+    try:
+        with urllib.request.urlopen(NTFY_URL.rsplit('/', 1)[0] + '/v1/health', timeout=10) as r:
+            ok = b'"healthy":true' in r.read().replace(b' ', b'')
+    except Exception as error:
+        print(f'g7-drift: ntfy is not answering ({error})', file=sys.stderr)
+        return False
+    if not ok:
+        print('g7-drift: ntfy reports it is not healthy', file=sys.stderr)
+    return ok
 
 
 def main():
@@ -402,7 +468,7 @@ def main():
         print(f'g7-drift: the check itself failed: {msg}', file=sys.stderr)
         if args.alert:
             notify('G7 drift check FAILED', f'{msg}\nNothing was compared.', 'high', 'rotating_light')
-        return 1
+        return 1  # no Healthchecks ping, so a broken check also shows as a missed one
     text = render(rep, used, sources)
     save(text)
     sys.stdout.write(text)
@@ -412,7 +478,13 @@ def main():
             more = len(rep.findings) - len(shown)
             body = '\n'.join(shown) + (f'\n...and {more} more' if more > 0 else '') + \
                 '\nFull report: /var/log/g7-drift/latest.txt'
-            notify(f'G7 drift: {len(rep.findings)} difference(s)', body, 'high', 'warning')
+            delivered = notify(f'G7 drift: {len(rep.findings)} difference(s)', body, 'high', 'warning')
+        else:
+            delivered = alert_path_ready()
+        if not delivered:
+            # Healthchecks is not pinged, so it reports this run as missed through its own channel.
+            print('g7-drift: alerting is broken; Healthchecks not pinged so the missed run is reported', file=sys.stderr)
+            return 1
         if HC_PING.exists():
             subprocess.run([str(HC_PING), HC_SLUG], timeout=60)
     return 3 if rep.findings else 0
