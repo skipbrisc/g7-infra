@@ -6,12 +6,23 @@
 
 ## Installing a change
 
-From `D:\g7-infra` in PowerShell, after the change is committed:
+Commit the change in `D:\g7-infra`, `git push g7 main`, then:
 
-    scp g7/taxglasses-deploy g7-taxglasses:/tmp/taxglasses-deploy
-    ssh -t g7-taxglasses "sudo -v && sudo diff -u /usr/local/sbin/taxglasses-deploy /tmp/taxglasses-deploy; sudo sh -n /tmp/taxglasses-deploy && sudo install -o root -g root -m 0755 /tmp/taxglasses-deploy /usr/local/sbin/taxglasses-deploy && rm -f /tmp/taxglasses-deploy && echo installed"
+    ssh -t g7 "sudo g7-apply"
 
-Read the diff before it installs. Do not install while a TaxGlasses-Deploy build is running.
+It shows the diff, checks the script's syntax, and installs it when you type `yes`. It refuses
+while a deploy is running (`g7/apply/README.md`).
+
+## Release history
+
+`promote` and `rollback` tag the commit they put live in G7's TaxGlasses repository, written
+as the `git` user: `live-<date>-<time>-<sha8>` and `rollback-<date>-<time>-<sha8>`, Pacific
+time. The GitHub mirror copies the tags within a minute. A tag that cannot be written is
+logged and sends one low-priority ntfy alert on `taxglasses` (with `/root/.ntfy-g7-token`);
+the deploy itself is never failed or undone by it. On the PC:
+
+    git fetch g7 --tags
+    git tag -l --sort=-creatordate -n1 "live-*" "rollback-*"
 
 ## 51unattended-upgrades-java
 

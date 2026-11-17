@@ -1,6 +1,7 @@
 #!/bin/sh
 # /usr/local/sbin/taxglasses-deploy on G7 (root:root 0755). Source of truth: this file in the repo.
-# Install: see g7/README.md. Called by Jenkins TaxGlasses-Deploy as jenkins-agent through
+# Install: sudo g7-apply, which waits while a deploy runs (g7/README.md). Called by Jenkins
+# TaxGlasses-Deploy and TaxGlasses-Rollback as jenkins-agent through
 # /etc/sudoers.d/jenkins-taxglasses (stage|promote <sha>, rollback).
 set -eu
 umask 022
@@ -22,6 +23,38 @@ switch_to() {
   printf 'reverse_proxy %s:8090\n' "$1" > caddy/live.caddy
   docker compose exec -T proxy caddy reload --config /etc/caddy/Caddyfile
   sleep 2; curl -fsS -m 5 http://10.77.0.1:8090/api/meta >/dev/null
+}
+
+# Release history (TaxGlasses docs/deploy.md, "Release history"): an annotated tag on the commit
+# that went live, in G7's TaxGlasses repository. Written as the git user, so Jenkins never gets
+# write access to the repository; the GitHub mirror copies it within a minute. A tag that cannot
+# be written never fails or undoes the deploy: one line in the log and one low-priority alert.
+REPO=/srv/git/repos/TaxGlasses.git
+NTFY_TOKEN_FILE=/root/.ntfy-g7-token
+note() { # title, message: one low-priority ntfy alert on topic taxglasses. Never fails.
+  tok=
+  if [ -r "$NTFY_TOKEN_FILE" ]; then tok=$(tr -d '[:space:]' < "$NTFY_TOKEN_FILE") || tok=; fi
+  if [ -n "$tok" ]; then
+    # The token reaches curl on stdin, never on its command line.
+    printf 'header = "Authorization: Bearer %s"\n' "$tok" | curl -fsS -m 10 -o /dev/null -K - \
+      -H "Title: $1" -H "Priority: low" -H "Tags: warning" -d "$2" http://127.0.0.1:2586/taxglasses \
+      || echo "ntfy: not sent" >&2
+  else
+    echo "ntfy: not sent (no token)" >&2
+  fi
+  return 0
+}
+tag_release() { # prefix, sha, message. Never fails.
+  name="$1-$(TZ=America/Los_Angeles date +%Y%m%d-%H%M)-$(echo "$2" | cut -c1-8)"
+  if out=$(runuser -u git -- env -i PATH="$PATH" HOME=/nonexistent TZ=America/Los_Angeles GIT_CONFIG_NOSYSTEM=1 \
+      git -C "$REPO" -c user.name='G7 taxglasses-deploy' -c user.email='taxglasses-deploy@g7.invalid' \
+      tag -a -m "$3" "$name" "$2" 2>&1); then
+    echo "Release tag: $name"
+  else
+    echo "Release tag $name not written: $out" >&2
+    note "TaxGlasses: release tag not written" "$name could not be written. The deploy itself is fine. $out"
+  fi
+  return 0
 }
 
 LIVE=$(cat live-color); IDLE=$(other "$LIVE")
@@ -67,6 +100,7 @@ promote)
   switch_to "$IDLE" || { echo "switch failed, going back to $LIVE" >&2; switch_to "$LIVE"; exit 1; }
   echo "$IDLE" > live-color
   rm -f staged
+  tag_release live "$SHA" "TaxGlasses $(echo $SHA | cut -c1-8) went live on $IDLE (promote). Previous release: $(cut -c1-8 "sha-$LIVE" 2>/dev/null || echo none) on $LIVE, kept for rollback."
   for t in $(docker images taxglasses --format '{{.Tag}}' | grep -Ex '[0-9a-f]{40}'); do
     grep -qx "$t" sha-blue sha-green 2>/dev/null || docker rmi -f "taxglasses:$t" >/dev/null
   done
@@ -82,6 +116,13 @@ rollback)
   healthy "$IDLE" || { echo "$IDLE isn't running; nothing to roll back to" >&2; exit 1; }
   switch_to "$IDLE"
   echo "$IDLE" > live-color
+  BACK=$(cat "sha-$IDLE" 2>/dev/null || true)
+  if echo "$BACK" | grep -Eqx '[0-9a-f]{40}'; then
+    tag_release rollback "$BACK" "TaxGlasses $(echo $BACK | cut -c1-8) is live again on $IDLE (rollback). Rolled back from $(cut -c1-8 "sha-$LIVE" 2>/dev/null || echo none) on $LIVE."
+  else
+    echo "No release recorded for $IDLE (sha-$IDLE); no rollback tag written." >&2
+    note "TaxGlasses: rollback tag not written" "Rolled back to $IDLE, but sha-$IDLE names no release, so no tag was written."
+  fi
   echo "Rolled back. Live: $(cut -c1-8 sha-$IDLE) on $IDLE" ;;
 *) echo "usage: taxglasses-deploy stage <sha> | promote <sha> | rollback" >&2; exit 2 ;;
 esac
