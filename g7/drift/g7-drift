@@ -320,7 +320,7 @@ def check_jobs(m, repos, rep):
             rep.find('Jenkins job differs', name, f'expected a pipeline from SCM at {script_path}, found {kind} {have}')
     listed = {n for n, _ in m['job']} | {n for n, _ in m['job-scm']}
     for name in sorted(on_g7 - listed):
-        if any(fnmatch.fnmatchcase(name, g) for g in m['ignore-job']):
+        if any(fnmatch.fnmatchcase(name.lower(), g.lower()) for g in m['ignore-job']):
             continue
         rep.find('Jenkins job not in Git', name)
 
