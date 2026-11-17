@@ -1,0 +1,388 @@
+#!/usr/bin/python3 -ISB
+"""g7-apply: make G7 match g7-infra, one approved change at a time. Phase 2 of the GitOps playbook.
+
+Source: g7/apply/g7-apply in the g7-infra repository. Installed by hand (never by itself) as
+/usr/local/sbin/g7-apply, root:root 0700. See g7/apply/README.md.
+
+  sudo g7-apply                        show what main in g7-infra would change, then ask before applying
+  sudo g7-apply --dry-run              show it and change nothing
+  sudo g7-apply --overwrite PATH ...   also replace these files, which were changed on G7 by hand
+
+It reads g7-infra's main branch from G7's own Git server and the same MAP as g7-drift. Only files
+whose MAP line says "yes" are applied. It never deletes a file, never restarts a service, and
+never touches anything g7-drift protects (MemeSniper's paths, /root, /home, secrets).
+
+Every apply keeps the files it replaced under /var/backups/g7-apply/<time>-<commit>/, writes a
+receipt to /var/log/g7-apply/, reloads systemd if a unit changed, and ends with a g7-drift run.
+Exit: 0 applied or nothing to do, 2 refused or declined (nothing changed), 1 an error.
+"""
+import argparse
+import difflib
+import fcntl
+import grp
+import hashlib
+import importlib.machinery
+import importlib.util
+import json
+import os
+import pwd
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+
+sys.dont_write_bytecode = True
+DRIFT = '/usr/local/sbin/g7-drift'
+UNIT_DIR = '/etc/systemd/system/'
+BACKUPS = Path('/var/backups/g7-apply')
+RECEIPTS = Path('/var/log/g7-apply')
+LOCK = '/run/g7-apply.lock'
+SYSTEMCTL = '/usr/bin/systemctl'
+DEPLOY_SCRIPT = '/usr/local/sbin/taxglasses-deploy'
+
+
+def load_drift():
+    """g7-drift holds the MAP parser, the Git reader and the safe file reader: use exactly those."""
+    st = os.lstat(DRIFT)
+    if not stat.S_ISREG(st.st_mode) or st.st_uid != 0 or st.st_mode & 0o022:
+        raise RuntimeError(f'{DRIFT} must be a root-owned file that only root can change')
+    loader = importlib.machinery.SourceFileLoader('g7drift', DRIFT)
+    spec = importlib.util.spec_from_loader('g7drift', loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def blob_id(data):
+    """Git's id for a file's contents, so G7's copy can be looked up in the file's history."""
+    return hashlib.sha1(b'blob %d\0' % len(data) + data).hexdigest()
+
+
+def history_blobs(repo, path):
+    out = repo._git('log', '--format=', '--raw', '--no-abbrev', '--follow', repo.sha, '--', path) or b''
+    blobs = set()
+    for line in out.decode().splitlines():
+        if line.startswith(':'):
+            for b in line.split('\t')[0].split()[2:4]:
+                if b.strip('0'):
+                    blobs.add(b)
+    return blobs
+
+
+def ids_of(owner):
+    user, group = owner.split(':')
+    return pwd.getpwnam(user).pw_uid, grp.getgrnam(group).gr_gid
+
+
+def deploy_running():
+    me = os.getpid()
+    for entry in os.listdir('/proc'):
+        if not entry.isdigit() or int(entry) == me:
+            continue
+        try:
+            args = Path('/proc', entry, 'cmdline').read_bytes().split(b'\0')
+        except OSError:
+            continue
+        if DEPLOY_SCRIPT.encode() in args[:3] and b'g7-apply' not in b' '.join(args[:2]):
+            return True
+    return False
+
+
+def syntax_problem(data):
+    """A script that will not even parse is refused before anything changes."""
+    first = data.split(b'\n', 1)[0]
+    if not first.startswith(b'#!'):
+        return None
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, 'candidate')
+        with open(path, 'wb') as f:
+            f.write(data)
+        if b'python' in first:
+            try:
+                compile(data, 'candidate', 'exec')
+            except SyntaxError as error:
+                return f'Python syntax error: {error}'
+            return None
+        shell = 'bash' if b'bash' in first else 'sh' if first.rstrip().endswith((b'/sh', b' sh')) else None
+        if shell:
+            r = subprocess.run([f'/bin/{shell}', '-n', path], capture_output=True, text=True)
+            if r.returncode:
+                return f'{shell} syntax error: {r.stderr.strip()[:300]}'
+    return None
+
+
+class Plan:
+    def __init__(self):
+        self.changes, self.refused, self.checked_only, self.same = [], [], [], 0
+
+
+def make_plan(d, m, repo, overwrite):
+    plan = Plan()
+    known = {e['live'] for e in m['file']}
+    for path in overwrite:
+        if path not in known:
+            plan.refused.append((path, '--overwrite names a file that MAP does not list'))
+    for e in m['file']:
+        (repo_name, src), live = e['source'], e['live']
+        if repo_name != 'g7-infra':
+            continue
+        want = repo.read(src)
+        if want is None:
+            if e['apply'] == 'yes':
+                plan.refused.append((live, f'g7-infra:{src} is not in Git'))
+            continue
+        if d.protected(live) or d.protected(os.path.realpath(live)):
+            if e['apply'] == 'yes':
+                plan.refused.append((live, 'protected path: never applied'))
+            continue
+        st, data = d.read_live(live)
+        missing = st is None and data == 'missing'
+        if st is None and not missing:
+            if e['apply'] == 'yes':
+                plan.refused.append((live, data))
+            continue
+        owner_now = d.owner_of(st) if st else None
+        mode_now = f'{stat.S_IMODE(st.st_mode):04o}' if st else None
+        meta_same = (not missing) and (e['owner'] in ('-', owner_now)) and (e['mode'] in ('-', mode_now))
+        if e['apply'] != 'yes':
+            if live in overwrite:
+                plan.refused.append((live, 'not on the allowed list, so --overwrite cannot change it'))
+            if 'live-caddy' in e['flags'] or missing:
+                continue
+            have = d.text_of(data)
+            for flag in sorted(e['flags'] & set(d.REDACT)):
+                rx, sub = d.REDACT[flag]
+                have = rx.sub(sub, have)
+            if have == d.text_of(want) and meta_same:
+                plan.same += 1
+            else:
+                plan.checked_only.append((live, 'differs from Git; not on the allowed list, so change it by hand'))
+            continue
+        content_same = (not missing) and data == want
+        if content_same and meta_same:
+            plan.same += 1
+            continue
+        if b'<REDACTED>' in want:
+            plan.refused.append((live, 'the Git copy holds a redacted secret'))
+            continue
+        if '-' in (e['owner'], e['mode']):
+            plan.refused.append((live, 'MAP must give owner and mode for a file it applies'))
+            continue
+        try:
+            ids_of(e['owner'])
+        except KeyError:
+            plan.refused.append((live, f'owner {e["owner"]} does not exist on G7'))
+            continue
+        parent = os.path.dirname(live)
+        make_parent = False
+        if not os.path.isdir(parent):
+            if live.startswith(UNIT_DIR) and parent.endswith('.d') and os.path.dirname(parent) == UNIT_DIR.rstrip('/'):
+                make_parent = True
+            else:
+                plan.refused.append((live, f'its folder {parent} does not exist'))
+                continue
+        elif os.path.realpath(parent) != parent:
+            plan.refused.append((live, 'its folder goes through a symlink'))
+            continue
+        if not missing and not content_same and blob_id(data) not in history_blobs(repo, src):
+            if live not in overwrite:
+                plan.refused.append((live, 'changed on G7 by hand: its contents are not any version Git ever had. '
+                                           'Read both, then rerun with --overwrite ' + live))
+                continue
+        if 'taxglasses-deploy' in e['flags'] and not content_same and deploy_running():
+            plan.refused.append((live, 'a TaxGlasses deploy is running; try again when it has finished'))
+            continue
+        if not content_same:
+            problem = syntax_problem(want)
+            if problem:
+                plan.refused.append((live, problem))
+                continue
+        kind = 'create' if missing else ('update' if not content_same else 'fix owner/mode')
+        then = []
+        if live.startswith(UNIT_DIR):
+            then.append('reload systemd')
+            if missing and live.endswith('.timer') and '/' not in live[len(UNIT_DIR):]:
+                then.append(f'enable --now {os.path.basename(live)}')
+        plan.changes.append(dict(live=live, src=src, kind=kind, want=want, before=None if missing else data,
+                                 before_blob=None if missing else blob_id(data), owner=e['owner'], mode=e['mode'],
+                                 owner_now=owner_now, mode_now=mode_now, make_parent=make_parent, then=then))
+    return plan
+
+
+def show(plan, d, repo, subject):
+    out = [f'g7-apply: g7-infra main {repo.sha[:12]}  {subject}', '']
+    if plan.changes:
+        out.append(f'Will change ({len(plan.changes)}):')
+        for c in plan.changes:
+            meta = '' if c['kind'] == 'update' and c['owner_now'] == c['owner'] and c['mode_now'] == c['mode'] else \
+                f'  [{c["owner_now"] or "new"} {c["mode_now"] or ""} -> {c["owner"]} {c["mode"]}]'
+            then = f'  then: {", ".join(c["then"])}' if c['then'] else ''
+            out.append(f'  {c["kind"]:<15} {c["live"]}{meta}{then}')
+    if plan.refused:
+        out += ['', f'REFUSED ({len(plan.refused)}): nothing will be applied until these are resolved']
+        out += [f'  {p}: {why}' for p, why in plan.refused]
+    if plan.checked_only:
+        out += ['', f'Not applied, checked only ({len(plan.checked_only)}):']
+        out += [f'  {p}: {why}' for p, why in plan.checked_only]
+    out += ['', f'Already matching Git: {plan.same} file(s).']
+    for c in plan.changes:
+        if c['kind'] != 'fix owner/mode':
+            before = d.text_of(c['before']) if c['before'] is not None else ''
+            out += ['', d.diff(before, d.text_of(c['want']), f'G7 {c["live"]}' if c['before'] is not None else '/dev/null',
+                               f'Git g7-infra:{c["src"]}').rstrip()]
+    return '\n'.join(out) + '\n'
+
+
+def write_atomic(path, data, uid, gid, mode):
+    folder, name = os.path.split(path)
+    tmp = os.path.join(folder, f'.{name}.g7-apply-{os.getpid()}')
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+    try:
+        os.write(fd, data)
+        os.fsync(fd)
+        os.fchown(fd, uid, gid)
+        os.fchmod(fd, mode)
+    finally:
+        os.close(fd)
+    os.replace(tmp, path)
+
+
+def set_meta(path, uid, gid, mode):
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        os.fchown(fd, uid, gid)
+        os.fchmod(fd, mode)
+    finally:
+        os.close(fd)
+
+
+def systemctl(*args):
+    r = subprocess.run([SYSTEMCTL, *args], capture_output=True, text=True, timeout=120)
+    return r.returncode, (r.stdout + r.stderr).strip()
+
+
+def apply(plan, d, repo, subject):
+    stamp = datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')
+    BACKUPS.mkdir(mode=0o700, parents=True, exist_ok=True)
+    backup = BACKUPS / f'{stamp}-{repo.sha[:8]}'
+    backup.mkdir(mode=0o700)
+    lines, undo, done = [], [], []
+    for c in plan.changes:
+        live = c['live']
+        if c['before'] is None:
+            now = 'appeared' if os.path.lexists(live) else None
+        else:
+            st, data = d.read_live(live)
+            now = None if st is None else blob_id(data)
+        if now != c['before_blob']:
+            lines.append(f'STOPPED at {live}: it changed while you were reading the plan. Nothing after it was applied.')
+            break
+        if c['before'] is not None:
+            copy = backup / live.lstrip('/')
+            copy.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            with open(copy, 'wb') as f:
+                f.write(c['before'])
+            os.chmod(copy, 0o600)
+            undo.append(f'install -o {c["owner_now"].split(":")[0]} -g {c["owner_now"].split(":")[1]} '
+                        f'-m {c["mode_now"]} {copy} {live}')
+        else:
+            undo.append(f'rm {live}')
+        uid, gid = ids_of(c['owner'])
+        mode = int(c['mode'], 8)
+        if c['make_parent']:
+            os.mkdir(os.path.dirname(live), 0o755)
+        if c['kind'] == 'fix owner/mode':
+            set_meta(live, uid, gid, mode)
+        else:
+            write_atomic(live, c['want'], uid, gid, mode)
+        done.append(c)
+        lines.append(f'{c["kind"]:<15} {live}  sha1-blob {c["before_blob"] or "-"} -> {blob_id(c["want"])}  {c["owner"]} {c["mode"]}')
+    after = []
+    if any(c['live'].startswith(UNIT_DIR) for c in done):
+        rc, msg = systemctl('daemon-reload')
+        after.append(f'systemctl daemon-reload: {"ok" if rc == 0 else "FAILED " + msg}')
+        for c in done:
+            for t in c['then']:
+                if t.startswith('enable --now '):
+                    unit = t.split()[-1]
+                    rc, msg = systemctl('enable', '--now', unit)
+                    after.append(f'systemctl enable --now {unit}: {"ok" if rc == 0 else "FAILED " + msg}')
+                    undo.append(f'systemctl disable --now {unit}')
+    user = os.environ.get('SUDO_USER', 'root')
+    receipt = [f'g7-apply receipt {stamp} UTC by {user}', f'Commit: g7-infra main {repo.sha}  {subject}',
+               f'Backup of replaced files: {backup}', ''] + lines + [''] + after + \
+              ['', 'To undo, as root (the normal way is to revert the commit, push and run g7-apply again):'] + \
+              [f'  {u}' for u in reversed(undo)] + (['  systemctl daemon-reload'] if after else [])
+    text = '\n'.join(receipt) + '\n'
+    RECEIPTS.mkdir(mode=0o700, parents=True, exist_ok=True)
+    fd = os.open(RECEIPTS / f'{stamp}-{repo.sha[:8]}.txt', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, 'w') as f:
+        f.write(text)
+    with open(backup / 'receipt.txt', 'w') as f:
+        f.write(text)
+    return text, len(done) == len(plan.changes), any('FAILED' in a for a in after)
+
+
+def main():
+    ap = argparse.ArgumentParser(description='Make G7 match g7-infra main, after you approve the diff.')
+    ap.add_argument('--dry-run', action='store_true', help='show what would change; change nothing')
+    ap.add_argument('--overwrite', nargs='+', default=[], metavar='PATH',
+                    help='replace these files even though they were changed on G7 by hand')
+    args = ap.parse_args()
+    if os.geteuid() != 0:
+        sys.exit('g7-apply: run as root (sudo g7-apply)')
+    lock = open(LOCK, 'w')
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        sys.exit('g7-apply: another g7-apply is running')
+    try:
+        d = load_drift()
+        repo = d.Repos()['g7-infra']
+        map_text = repo.read(d.MAP_IN_GIT[1])
+        if map_text is None:
+            raise RuntimeError('g7/drift/MAP is not in g7-infra main')
+        m = d.parse_map(d.text_of(map_text))
+        subject = (repo._git('log', '-1', '--format=%h %an, %ad: %s', '--date=short', repo.sha) or b'').decode().strip()
+        plan = make_plan(d, m, repo, set(args.overwrite))
+    except Exception as error:
+        print(f'g7-apply: {type(error).__name__}: {error}', file=sys.stderr)
+        return 1
+    sys.stdout.write(show(plan, d, repo, subject))
+    if plan.refused:
+        print('\nNothing was applied.')
+        return 2
+    if not plan.changes:
+        print('\nNothing to apply: G7 already matches g7-infra main for every file g7-apply may change.')
+        return 0
+    if args.dry_run:
+        print('\nDry run: nothing was changed.')
+        return 0
+    if not sys.stdin.isatty():
+        print('\ng7-apply asks before changing anything: run it in a terminal (ssh -t g7 "sudo g7-apply").')
+        return 2
+    answer = input(f'\nType yes to apply these {len(plan.changes)} change(s): ').strip()
+    if answer != 'yes':
+        print('Not applied. Nothing changed.')
+        return 2
+    try:
+        receipt, complete, failed = apply(plan, d, repo, subject)
+    except Exception as error:
+        print(f'g7-apply: stopped by {type(error).__name__}: {error}', file=sys.stderr)
+        print('Some files may have changed: see /var/backups/g7-apply/ (newest folder) and /var/log/g7-apply/.',
+              file=sys.stderr)
+        return 1
+    print('\n' + receipt)
+    note = f'{len(plan.changes)} change(s) from g7-infra {repo.sha[:8]}' + ('' if complete and not failed else ' (INCOMPLETE, see receipt)')
+    d.notify('G7: g7-apply ran', note, 'default' if complete and not failed else 'high', 'wrench')
+    print('Checking with g7-drift:')
+    r = subprocess.run([DRIFT], capture_output=True, text=True)
+    print('\n'.join(l for l in r.stdout.splitlines() if l.startswith(('RESULT', '  - ')))[:4000])
+    return 0 if complete and not failed else 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())
