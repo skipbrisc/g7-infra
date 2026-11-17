@@ -1,16 +1,16 @@
 # Runbooks
 
 One page per service: how to tell it is up, deploy it, roll it back, read its logs and
-restart it. Written 2026-11-14 from the repositories and from what was verified on G7 that
+restart it. MemeSniper's pages live in its own repository, memesniper-deploy (`D:\memesniper-deploy\docs`). Written 2026-11-14 from the repositories and from what was verified on G7 that
 week. Fix a page the moment you find it wrong.
 
 | Page | Service | Where it runs |
 |---|---|---|
 | [taxglasses.md](taxglasses.md) | TaxGlasses web form | G7, blue/green containers |
-| [memesniper.md](memesniper.md) | MemeSniper on G7 (paper monitor, Tier 2, CI) | G7, systemd services |
+| memesniper-deploy `docs/RUNBOOK-G7.md` | MemeSniper on G7 (paper monitor, Tier 2, CI) | G7, systemd services |
 | [aeraphim.md](aeraphim.md) | aeraphimcpa.com | Vercel, deployed by Jenkins on G7 |
 | [guatemalahope.md](guatemalahope.md) | guatemalahope.org | Vercel, deployed by Jenkins on G7 |
-| [MEMESNIPER-GO-LIVE-GATES.md](MEMESNIPER-GO-LIVE-GATES.md) | What must be true before MemeSniper trades real money | Draft |
+| memesniper-deploy `docs/GO-LIVE-GATES.md` | What must be true before MemeSniper trades real money | Draft |
 
 Rebuilding G7 from nothing is [../REBUILD.md](../REBUILD.md).
 

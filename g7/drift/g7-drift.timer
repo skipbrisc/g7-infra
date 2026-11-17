@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the G7 drift check daily
+
+[Timer]
+OnCalendar=*-*-* 05:10
+Persistent=true
+RandomizedDelaySec=5m
+
+[Install]
+WantedBy=timers.target

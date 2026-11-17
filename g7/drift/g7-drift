@@ -1,0 +1,422 @@
+#!/usr/bin/python3 -IS
+"""g7-drift: report every place where G7 differs from Git. Reads only; changes nothing.
+
+Source: g7/drift/g7-drift in the g7-infra repository. Installed as /usr/local/sbin/g7-drift
+(root:root 0700) and run daily by g7-drift.timer. See g7/drift/README.md.
+
+  sudo g7-drift                  print the report (no alert, no ping)
+  sudo g7-drift --alert          also alert on ntfy if anything differs, then ping Healthchecks
+  sudo g7-drift --map FILE       use a local MAP instead of the one in Git
+
+Exit: 0 everything matches Git, 3 something differs, 1 the check itself failed.
+
+Git is read straight from the bare repositories in /srv/git/repos, as the git user.
+This is the server's check. MemeSniper is not checked here: its files on G7 belong to the
+memesniper-deploy repository and to Codex. MAP ignores them, and PROTECTED below makes sure
+this script never reads anything of MemeSniper's even if MAP were to name it.
+"""
+import argparse
+import difflib
+import fcntl
+import fnmatch
+import grp
+import os
+import pwd
+import re
+import stat
+import subprocess
+import sys
+import urllib.request
+import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
+from pathlib import Path, PurePosixPath
+
+REPOS = Path('/srv/git/repos')
+BRANCH = {'g7-infra': 'main', 'TaxGlasses': 'master'}
+MAP_IN_GIT = ('g7-infra', 'g7/drift/MAP')
+GIT_UNMAPPED_CHECK = ('systemd', 'etc')      # g7-infra folders whose every file must be in MAP
+JOBS = Path('/var/lib/jenkins/jobs')
+LOGDIR = Path('/var/log/g7-drift')
+KEEP_REPORTS = 30
+NTFY_URL = 'http://127.0.0.1:2586/g7'
+NTFY_TOKEN = Path('/root/.ntfy-g7-token')
+HC_PING = Path('/usr/local/sbin/g7-hc-ping')
+HC_SLUG = 'g7-drift'
+GIT = '/usr/bin/git'
+SYSTEMCTL = '/usr/bin/systemctl'
+# Contents under these are never read, whatever MAP says.
+PROTECTED = ('/root/', '/home/', '/etc/shadow', '/etc/gshadow', '/etc/ssh/ssh_host_', '/srv/vaultwarden/',
+             # MemeSniper's, never read by the server's check:
+             '/opt/memesniper', '/var/lib/memesniper', '/etc/memesniper', '/etc/sudoers.d/memesniper',
+             '/etc/systemd/system/memesniper.', '/etc/systemd/system/memesniper-tier2',
+             '/etc/systemd/system/memesniper-study', '/srv/git/repos/memesniper.git/hooks/')
+# Folders where a file that MAP does not list is reported as "on G7, not in Git".
+# 'units': unit files and the files in their .d drop-in folders; 'files': every regular file.
+UNMANAGED = (('/etc/systemd/system', 'units'), ('/usr/local/sbin', 'files'), ('/etc/sudoers.d', 'files'))
+UNIT_SUFFIXES = ('.service', '.timer', '.socket', '.path', '.mount', '.target')
+REDACT = {
+    'redact-wg': (re.compile(r'^(\s*(?:PrivateKey|PresharedKey)\s*=\s*).*$', re.M), r'\1<REDACTED>'),
+    'redact-hostapd': (re.compile(r'^(\s*wpa_passphrase=).*$', re.M), r'\1<REDACTED>'),
+    'redact-jenkins-secret': (re.compile(r'(-secret\s+)\S+'), r'\1<REDACTED>'),
+}
+FLAGS = set(REDACT) | {'live-caddy', 'taxglasses-deploy'}
+LIVE_CADDY = {'reverse_proxy blue:8090', 'reverse_proxy green:8090'}
+
+
+
+class Report:
+    def __init__(self):
+        self.findings, self.details, self.notes = [], [], []
+
+    def find(self, kind, where, note='', detail=None):
+        self.findings.append(f'{kind}: {where}' + (f'  ({note})' if note else ''))
+        if detail:
+            self.details.append(f'=== {where}\n{detail.rstrip()}\n')
+
+
+class Repo:
+    """A bare repository on G7, read as the git user at the branch's current commit."""
+
+    def __init__(self, name):
+        self.name, self.branch = name, BRANCH.get(name, 'main')
+        self.dir = REPOS / f'{name}.git'
+        out = self._git('rev-parse', '--verify', f'{self.branch}^{{commit}}')
+        if out is None:
+            raise RuntimeError(f'cannot read branch {self.branch} of {self.dir}')
+        self.sha = out.decode().strip()
+
+    def _git(self, *args):
+        r = subprocess.run([GIT, f'--git-dir={self.dir}', *args], capture_output=True, cwd='/',
+                           user='git', group='git', extra_groups=[], timeout=120,
+                           env={'PATH': '/usr/bin:/bin', 'HOME': '/nonexistent', 'LANG': 'C',
+                                'GIT_CONFIG_NOSYSTEM': '1'})
+        return r.stdout if r.returncode == 0 else None
+
+    def read(self, path):
+        return self._git('cat-file', 'blob', f'{self.sha}:{path}')
+
+    def files(self, *prefixes):
+        out = self._git('ls-tree', '-r', '--name-only', self.sha, '--', *prefixes)
+        return out.decode().splitlines() if out else []
+
+
+class Repos(dict):
+    def __missing__(self, name):
+        self[name] = Repo(name)
+        return self[name]
+
+
+def safe_rel(path):
+    p = PurePosixPath(path)
+    return bool(p.parts) and not p.is_absolute() and '..' not in p.parts
+
+
+def source(text, line):
+    repo, sep, path = text.partition(':')
+    if not sep or repo not in BRANCH or not safe_rel(path):
+        raise ValueError(f'MAP line {line}: bad source {text!r} (want <repo>:<path>, repo one of {sorted(BRANCH)})')
+    return repo, path
+
+
+def live_path(text, line):
+    p = PurePosixPath(text)
+    if not p.is_absolute() or '..' in p.parts:
+        raise ValueError(f'MAP line {line}: bad live path {text!r}')
+    return text
+
+
+def parse_map(text):
+    m = {'file': [], 'twin': [], 'job': [], 'job-scm': [], 'ignore': set(), 'ignore-glob': [], 'ignore-job': []}
+    for n, raw in enumerate(text.splitlines(), 1):
+        f = raw.split('#', 1)[0].split()
+        if not f:
+            continue
+        kind = f[0]
+        if kind == 'file' and len(f) in (6, 7):
+            owner, mode, apply = f[3], f[4], f[5]
+            flags = set(f[6].split(',')) if len(f) == 7 else set()
+            if owner != '-' and not re.fullmatch(r'[a-z_][a-z0-9_-]*:[a-z_][a-z0-9_-]*', owner):
+                raise ValueError(f'MAP line {n}: bad owner {owner!r}')
+            if mode != '-' and not re.fullmatch(r'0[0-7]{3}', mode):
+                raise ValueError(f'MAP line {n}: bad mode {mode!r}')
+            if apply not in ('yes', 'no') or not flags <= FLAGS:
+                raise ValueError(f'MAP line {n}: bad apply or flags')
+            m['file'].append(dict(source=source(f[1], n), live=live_path(f[2], n), owner=owner,
+                                  mode=mode, apply=apply, flags=flags))
+        elif kind == 'twin' and len(f) == 3:
+            m['twin'].append((source(f[1], n), source(f[2], n)))
+        elif kind == 'job' and len(f) == 3:
+            m['job'].append((f[1], source(f[2], n)))
+        elif kind == 'job-scm' and len(f) == 3:
+            m['job-scm'].append((f[1], f[2]))
+        elif kind == 'ignore' and len(f) == 2:
+            m['ignore'].add(live_path(f[1], n))
+        elif kind == 'ignore-glob' and len(f) == 2:
+            m['ignore-glob'].append(live_path(f[1], n))
+        elif kind == 'ignore-job' and len(f) == 2:
+            m['ignore-job'].append(f[1])
+        else:
+            raise ValueError(f'MAP line {n}: not understood: {raw.strip()!r}')
+    lives = [e['live'] for e in m['file']]
+    if len(lives) != len(set(lives)):
+        raise ValueError('MAP lists the same live path twice')
+    return m
+
+
+def text_of(data):
+    return data.decode('utf-8', errors='replace').replace('\r\n', '\n')
+
+
+def diff(a, b, name_a, name_b, limit=400):
+    lines = list(difflib.unified_diff(a.splitlines(True), b.splitlines(True), name_a, name_b, n=2))
+    if len(lines) > limit:
+        lines = lines[:limit] + [f'... {len(lines) - limit} more diff lines\n']
+    return ''.join(line if line.endswith('\n') else line + '\n' for line in lines)
+
+
+def owner_of(st):
+    try:
+        u = pwd.getpwuid(st.st_uid).pw_name
+    except KeyError:
+        u = str(st.st_uid)
+    try:
+        g = grp.getgrgid(st.st_gid).gr_name
+    except KeyError:
+        g = str(st.st_gid)
+    return f'{u}:{g}'
+
+
+
+def protected(path):
+    return any(path.startswith(p) for p in PROTECTED)
+
+
+# ---------------------------------------------------------------- files, twins, coverage
+
+def check_file(e, repos, rep):
+    (repo, path), live = e['source'], e['live']
+    want = repos[repo].read(path)
+    if want is None:
+        return rep.find('missing in Git', f'{repo}:{path}', f'MAP maps it to {live}')
+    if protected(live):
+        return rep.find('refused', live, 'protected path: its contents are never read')
+    try:
+        st = os.lstat(live)
+    except FileNotFoundError:
+        return rep.find('missing on G7', live, f'Git has {repo}:{path}')
+    if not stat.S_ISREG(st.st_mode):
+        return rep.find('not a regular file on G7', live)
+    owner, mode = owner_of(st), f'{stat.S_IMODE(st.st_mode):04o}'
+    if e['owner'] != '-' and owner != e['owner']:
+        rep.find('owner differs', live, f'G7 {owner}, MAP {e["owner"]}')
+    if e['mode'] != '-' and mode != e['mode']:
+        rep.find('mode differs', live, f'G7 {mode}, MAP {e["mode"]}')
+    if '-' in (e['owner'], e['mode']):
+        rep.notes.append(f'owner/mode not in MAP: {live} is {owner} {mode}')
+    have = text_of(Path(live).read_bytes())
+    if 'live-caddy' in e['flags']:
+        line = have.strip()
+        if line in LIVE_CADDY:
+            rep.notes.append(f'TaxGlasses live color: {line.split()[1].split(":")[0]}')
+        else:
+            rep.find('unexpected content', live, 'names neither blue nor green')
+        return
+    for flag in sorted(e['flags'] & set(REDACT)):
+        rx, sub = REDACT[flag]
+        have = rx.sub(sub, have)
+    want = text_of(want)
+    if have != want:
+        rep.find('differs', live, f'from {repo}:{path}', diff(want, have, f'Git {repo}:{path}', f'G7 {live}'))
+
+
+def check_twins(m, repos, rep):
+    for (ra, pa), (rb, pb) in m['twin']:
+        a, b = repos[ra].read(pa), repos[rb].read(pb)
+        if a is None or b is None:
+            rep.find('missing in Git', f'{ra}:{pa}' if a is None else f'{rb}:{pb}', 'named in a twin line')
+        elif text_of(a) != text_of(b):
+            rep.find('copies in Git differ', f'{ra}:{pa} and {rb}:{pb}', '',
+                     diff(text_of(a), text_of(b), f'{ra}:{pa}', f'{rb}:{pb}'))
+
+
+def check_git_coverage(m, repos, rep):
+    named = {e['source'] for e in m['file']} | {s for pair in m['twin'] for s in pair}
+    for path in repos['g7-infra'].files(*GIT_UNMAPPED_CHECK):
+        if ('g7-infra', path) not in named:
+            rep.find('in Git, not in MAP', f'g7-infra:{path}')
+
+
+def check_unmanaged(m, rep):
+    known = {e['live'] for e in m['file']} | m['ignore']
+
+    def report(p):
+        if str(p) not in known and not any(fnmatch.fnmatchcase(str(p), g) for g in m['ignore-glob']):
+            rep.find('on G7, not in Git', str(p))
+    for top, kind in UNMANAGED:
+        base = Path(top)
+        if not base.is_dir():
+            continue
+        for p in sorted(base.iterdir()):
+            if p.is_symlink():
+                continue
+            if kind == 'units':
+                if p.is_dir():
+                    if p.name.endswith('.d'):
+                        for q in sorted(p.iterdir()):
+                            if q.is_file() and not q.is_symlink():
+                                report(q)
+                    continue
+                if p.name.endswith(UNIT_SUFFIXES):
+                    report(p)
+            elif p.is_file():
+                report(p)
+
+
+# ---------------------------------------------------------------- Jenkins
+
+def job_definition(name):
+    text = (JOBS / name / 'config.xml').read_text(encoding='utf-8', errors='replace')
+    root = ET.fromstring(re.sub(r'^\s*<\?xml[^>]*\?>', '', text))
+    d = root.find('definition')
+    cls = d.get('class', '') if d is not None else ''
+    if cls.endswith('.CpsFlowDefinition'):
+        return 'inline', d.findtext('script') or ''
+    if cls.endswith('.CpsScmFlowDefinition'):
+        return 'scm', d.findtext('scriptPath') or ''
+    return 'other', cls
+
+
+def pipeline_lines(text):
+    """As scripts/jenkins-jobs.ps1 compares: trailing spaces and blank lines ignored."""
+    return [l.rstrip() for l in text.replace('\r\n', '\n').split('\n') if l.strip()]
+
+
+def check_jobs(m, repos, rep):
+    if not JOBS.is_dir():
+        return rep.notes.append(f'{JOBS} not found: Jenkins jobs not compared')
+    on_g7 = {d.name for d in JOBS.iterdir() if (d / 'config.xml').is_file()}
+    for name, (repo, path) in m['job']:
+        if name not in on_g7:
+            rep.find('Jenkins job missing on G7', name)
+            continue
+        want = repos[repo].read(path)
+        if want is None:
+            rep.find('missing in Git', f'{repo}:{path}', f'pipeline of Jenkins job {name}')
+            continue
+        kind, have = job_definition(name)
+        if kind != 'inline':
+            rep.find('Jenkins job is not an inline pipeline', name, kind)
+            continue
+        a, b = pipeline_lines(text_of(want)), pipeline_lines(have)
+        if a != b:
+            rep.find('Jenkins job differs', name, f'from {repo}:{path}',
+                     diff('\n'.join(a) + '\n', '\n'.join(b) + '\n', f'Git {repo}:{path}', f'Jenkins {name}'))
+    for name, script_path in m['job-scm']:
+        if name not in on_g7:
+            rep.find('Jenkins job missing on G7', name)
+            continue
+        kind, have = job_definition(name)
+        if kind != 'scm' or have != script_path:
+            rep.find('Jenkins job differs', name, f'expected a pipeline from SCM at {script_path}, found {kind} {have}')
+    listed = {n for n, _ in m['job']} | {n for n, _ in m['job-scm']}
+    for name in sorted(on_g7 - listed):
+        if any(fnmatch.fnmatchcase(name, g) for g in m['ignore-job']):
+            continue
+        rep.find('Jenkins job not in Git', name)
+
+
+# ---------------------------------------------------------------- run, report, alert
+
+def run(args):
+    rep, repos = Report(), Repos()
+    map_text = Path(args.map).read_text() if args.map else repos[MAP_IN_GIT[0]].read(MAP_IN_GIT[1])
+    if map_text is None:
+        raise RuntimeError(f'{MAP_IN_GIT[0]}:{MAP_IN_GIT[1]} is not in Git')
+    m = parse_map(text_of(map_text) if isinstance(map_text, bytes) else map_text)
+    for e in m['file']:
+        check_file(e, repos, rep)
+    check_twins(m, repos, rep)
+    check_git_coverage(m, repos, rep)
+    check_unmanaged(m, rep)
+    check_jobs(m, repos, rep)
+    used = ', '.join(f'{r.name} {r.branch} {r.sha[:12]}' for r in repos.values())
+    return rep, used, f'MAP from {args.map}' if args.map else 'MAP from Git'
+
+
+def render(rep, used, sources):
+    now = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+    out = [f'G7 drift report, {now}', f'Git: {used}', f'Inputs: {sources}', '']
+    if rep.findings:
+        out += [f'RESULT: {len(rep.findings)} difference(s)', ''] + [f'  - {f}' for f in rep.findings]
+    else:
+        out += ['RESULT: everything matches Git']
+    if rep.details:
+        out += ['', 'DETAILS', ''] + rep.details
+    if rep.notes:
+        out += ['', 'NOTES'] + [f'  - {n}' for n in rep.notes]
+    return '\n'.join(out) + '\n'
+
+
+def save(text):
+    LOGDIR.mkdir(mode=0o700, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')
+    for target in (LOGDIR / f'{stamp}.txt', LOGDIR / 'latest.txt'):
+        fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, 'w') as f:
+            f.write(text)
+    reports = sorted(p for p in LOGDIR.glob('2*.txt'))
+    for old in reports[:-KEEP_REPORTS]:
+        old.unlink()
+
+
+def notify(title, body, priority, tags):
+    try:
+        token = NTFY_TOKEN.read_text().strip()
+    except OSError:
+        return
+    req = urllib.request.Request(NTFY_URL, data=body.encode(), method='POST', headers={
+        'Authorization': f'Bearer {token}', 'Title': title, 'Priority': priority, 'Tags': tags})
+    try:
+        urllib.request.urlopen(req, timeout=10).read()
+    except Exception as error:  # an alert that cannot be sent must not hide the result
+        print(f'g7-drift: ntfy not sent ({error})', file=sys.stderr)
+
+
+def main():
+    ap = argparse.ArgumentParser(description='Report where G7 differs from Git. Reads only.')
+    ap.add_argument('--alert', action='store_true', help='alert on ntfy if anything differs, then ping Healthchecks')
+    ap.add_argument('--map', help='local MAP file instead of the one in Git')
+    args = ap.parse_args()
+    if os.geteuid() != 0:
+        sys.exit('g7-drift: run as root (sudo g7-drift)')
+    LOGDIR.mkdir(mode=0o700, exist_ok=True)
+    lock = open(LOGDIR / '.lock', 'w')
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        sys.exit('g7-drift: another run is in progress')
+    try:
+        rep, used, sources = run(args)
+    except Exception as error:
+        msg = f'{type(error).__name__}: {error}'
+        print(f'g7-drift: the check itself failed: {msg}', file=sys.stderr)
+        if args.alert:
+            notify('G7 drift check FAILED', f'{msg}\nNothing was compared.', 'high', 'rotating_light')
+        return 1
+    text = render(rep, used, sources)
+    save(text)
+    sys.stdout.write(text)
+    if args.alert:
+        if rep.findings:
+            shown = rep.findings[:12]
+            more = len(rep.findings) - len(shown)
+            body = '\n'.join(shown) + (f'\n...and {more} more' if more > 0 else '') + \
+                '\nFull report: /var/log/g7-drift/latest.txt'
+            notify(f'G7 drift: {len(rep.findings)} difference(s)', body, 'high', 'warning')
+        if HC_PING.exists():
+            subprocess.run([str(HC_PING), HC_SLUG], timeout=60)
+    return 3 if rep.findings else 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

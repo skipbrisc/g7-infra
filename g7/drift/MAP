@@ -1,0 +1,118 @@
+# MAP: every file on G7 that Git describes, and where it lives on each side.
+# Read by g7-drift (Phase 1: compare and report) and, later, g7-apply (Phase 2: apply "yes" lines).
+#
+#   file  <repo>:<path>  <path on G7>  <owner:group or ->  <mode or ->  <apply yes|no>  [flags]
+#   twin  <repo>:<path>  <repo>:<path>     two copies in Git that must stay identical
+#   job   <Jenkins job>  <repo>:<path>     inline pipeline that must match this file
+#   job-scm <Jenkins job> <script path>    pipeline read from the job's own repository
+#   ignore <path on G7>                    a file on G7 that is deliberately not in Git
+#
+# repo: g7-infra (main) or TaxGlasses (master), both in /srv/git/repos on G7.
+#   ignore-glob <pattern>                  files on G7 that belong to another repository (fnmatch)
+#   ignore-job <pattern>                   Jenkins jobs that belong to another repository
+#
+# MemeSniper is not described here: its files on G7 are in the memesniper-deploy repository
+# (g7/) and are Codex's. g7-drift never reads them (PROTECTED in the script).
+# owner or mode "-": not checked yet; the report prints what G7 has, so it can be filled in.
+# apply "no": checked only, never applied from Git (lock-out risk, a secret, the deploy's own
+# files). Flags: redact-wg, redact-hostapd, redact-jenkins-secret (the live copy is
+# redacted the same way before comparing), live-caddy (only checks it names blue or green),
+# taxglasses-deploy (g7-apply waits for no deploy to be running).
+
+# --- systemd units, timers and drop-ins
+file  g7-infra:systemd/aeraphim-mirror.service  /etc/systemd/system/aeraphim-mirror.service  root:root  0644  yes
+file  g7-infra:systemd/aeraphim-mirror.service.d/healthchecks.conf  /etc/systemd/system/aeraphim-mirror.service.d/healthchecks.conf  root:root  0644  yes
+file  g7-infra:systemd/aeraphim-mirror.timer  /etc/systemd/system/aeraphim-mirror.timer  root:root  0644  yes
+file  g7-infra:systemd/duckdns.service  /etc/systemd/system/duckdns.service  root:root  0644  yes
+file  g7-infra:systemd/duckdns.timer  /etc/systemd/system/duckdns.timer  root:root  0644  yes
+file  g7-infra:systemd/g7-backup.service  /etc/systemd/system/g7-backup.service  root:root  0644  yes
+file  g7-infra:systemd/g7-backup.service.d/healthchecks.conf  /etc/systemd/system/g7-backup.service.d/healthchecks.conf  root:root  0644  yes
+file  g7-infra:systemd/g7-backup.timer  /etc/systemd/system/g7-backup.timer  root:root  0644  yes
+file  g7-infra:systemd/g7-heartbeat.service  /etc/systemd/system/g7-heartbeat.service  root:root  0644  yes
+file  g7-infra:systemd/g7-heartbeat.timer  /etc/systemd/system/g7-heartbeat.timer  root:root  0644  yes
+file  g7-infra:systemd/g7-infra-mirror.service  /etc/systemd/system/g7-infra-mirror.service  root:root  0644  yes
+file  g7-infra:systemd/g7-infra-mirror.service.d/healthchecks.conf  /etc/systemd/system/g7-infra-mirror.service.d/healthchecks.conf  root:root  0644  yes
+file  g7-infra:systemd/g7-infra-mirror.timer  /etc/systemd/system/g7-infra-mirror.timer  root:root  0644  yes
+file  g7-infra:systemd/guatemalahope-mirror.service  /etc/systemd/system/guatemalahope-mirror.service  root:root  0644  yes
+file  g7-infra:systemd/guatemalahope-mirror.service.d/healthchecks.conf  /etc/systemd/system/guatemalahope-mirror.service.d/healthchecks.conf  root:root  0644  yes
+file  g7-infra:systemd/guatemalahope-mirror.timer  /etc/systemd/system/guatemalahope-mirror.timer  root:root  0644  yes
+file  g7-infra:systemd/jenkins-agent.service  /etc/systemd/system/jenkins-agent.service  root:root  0644  no  redact-jenkins-secret
+file  g7-infra:systemd/memesniper-deploy-mirror.service  /etc/systemd/system/memesniper-deploy-mirror.service  root:root  0644  yes
+file  g7-infra:systemd/memesniper-deploy-mirror.service.d/healthchecks.conf  /etc/systemd/system/memesniper-deploy-mirror.service.d/healthchecks.conf  root:root  0644  yes
+file  g7-infra:systemd/memesniper-deploy-mirror.timer  /etc/systemd/system/memesniper-deploy-mirror.timer  root:root  0644  yes
+file  g7-infra:systemd/memesniper-mirror.service  /etc/systemd/system/memesniper-mirror.service  root:root  0644  yes
+file  g7-infra:systemd/memesniper-mirror.service.d/healthchecks.conf  /etc/systemd/system/memesniper-mirror.service.d/healthchecks.conf  root:root  0644  yes
+file  g7-infra:systemd/memesniper-mirror.timer  /etc/systemd/system/memesniper-mirror.timer  root:root  0644  yes
+file  g7-infra:systemd/taxglasses-fw.service  /etc/systemd/system/taxglasses-fw.service  root:root  0644  no
+file  g7-infra:systemd/taxglasses-mirror.service  /etc/systemd/system/taxglasses-mirror.service  root:root  0644  yes
+file  g7-infra:systemd/taxglasses-mirror.service.d/healthchecks.conf  /etc/systemd/system/taxglasses-mirror.service.d/healthchecks.conf  root:root  0644  yes
+file  g7-infra:systemd/taxglasses-mirror.timer  /etc/systemd/system/taxglasses-mirror.timer  root:root  0644  yes
+file  g7-infra:systemd/vaultwarden-backup.service  /etc/systemd/system/vaultwarden-backup.service  root:root  0644  yes
+file  g7-infra:systemd/vaultwarden-backup.timer  /etc/systemd/system/vaultwarden-backup.timer  root:root  0644  yes
+file  g7-infra:systemd/wg-quick@wg0.service.d/10-docker.conf  /etc/systemd/system/wg-quick@wg0.service.d/10-docker.conf  root:root  0644  no
+file  g7-infra:systemd/wg-quick@wg0.service.d/docker-order.conf  /etc/systemd/system/wg-quick@wg0.service.d/docker-order.conf  root:root  0644  no
+
+# --- units that live beside their install scripts
+file  g7-infra:g7/image-scan/g7-image-scan.service  /etc/systemd/system/g7-image-scan.service  root:root  0644  yes
+file  g7-infra:g7/image-scan/g7-image-scan.timer  /etc/systemd/system/g7-image-scan.timer  root:root  0644  yes
+file  g7-infra:g7/drift/g7-drift.service  /etc/systemd/system/g7-drift.service  root:root  0644  yes
+file  g7-infra:g7/drift/g7-drift.timer  /etc/systemd/system/g7-drift.timer  root:root  0644  yes
+
+# --- scripts in /usr/local/sbin
+file  g7-infra:g7/backup/g7-backup  /usr/local/sbin/g7-backup  root:root  0700  yes
+file  g7-infra:g7/healthchecks/g7-hc-ping  /usr/local/sbin/g7-hc-ping  root:root  0755  yes
+file  g7-infra:g7/image-scan/g7-image-scan  /usr/local/sbin/g7-image-scan  root:root  0700  yes
+file  g7-infra:g7/drift/g7-drift  /usr/local/sbin/g7-drift  root:root  0700  yes
+file  g7-infra:g7/taxglasses-deploy  /usr/local/sbin/taxglasses-deploy  root:root  0755  yes  taxglasses-deploy
+file  g7-infra:etc/sbin/vaultwarden-backup.sh  /usr/local/sbin/vaultwarden-backup.sh  -  -  yes
+file  g7-infra:etc/sbin/ap-firewall.sh  /usr/local/sbin/ap-firewall.sh  -  -  no
+file  g7-infra:etc/sbin/taxglasses-fw.sh  /usr/local/sbin/taxglasses-fw.sh  -  -  no
+
+# --- system configuration (never applied from Git)
+file  g7-infra:etc/ssh/00-key-only.conf  /etc/ssh/sshd_config.d/00-key-only.conf  root:root  0644  no
+file  g7-infra:etc/sudoers.d/README  /etc/sudoers.d/README  root:root  0440  no
+file  g7-infra:etc/sudoers.d/jenkins-taxglasses  /etc/sudoers.d/jenkins-taxglasses  root:root  0440  no
+file  g7-infra:etc/sudoers.d/sites-ops  /etc/sudoers.d/sites-ops  root:root  0440  no
+file  g7-infra:etc/sudoers.d/taxglasses-ci  /etc/sudoers.d/taxglasses-ci  root:root  0440  no
+file  g7-infra:etc/network/interfaces  /etc/network/interfaces  root:root  0644  no
+file  g7-infra:etc/hostapd/hostapd.conf  /etc/hostapd/hostapd.conf  -  -  no  redact-hostapd
+file  g7-infra:etc/wireguard/wg0.conf  /etc/wireguard/wg0.conf  root:root  0600  no  redact-wg
+file  g7-infra:etc/wireguard/wg-mia.conf  /etc/wireguard/wg-mia.conf  root:root  0600  no  redact-wg
+file  g7-infra:g7/51unattended-upgrades-java  /etc/apt/apt.conf.d/51unattended-upgrades-java  root:root  0644  yes
+
+# --- containers on G7 (the deploy or you manage these; never applied from Git)
+file  g7-infra:etc/taxglasses/docker-compose.yml  /opt/taxglasses/docker-compose.yml  -  -  no
+file  g7-infra:etc/taxglasses/caddy/Caddyfile  /opt/taxglasses/caddy/Caddyfile  -  -  no
+file  g7-infra:etc/taxglasses/caddy/live.caddy  /opt/taxglasses/caddy/live.caddy  -  -  no  live-caddy
+file  g7-infra:g7/ntfy/docker-compose.yml  /opt/ntfy/docker-compose.yml  -  -  no
+file  g7-infra:g7/ntfy/server.yml  /opt/ntfy/etc/server.yml  -  -  no
+file  g7-infra:g7/uptime-kuma/docker-compose.yml  /opt/uptime-kuma/docker-compose.yml  -  -  no
+
+# --- Git hooks on G7
+file  g7-infra:g7/hooks/TaxGlasses-post-receive  /srv/git/repos/TaxGlasses.git/hooks/post-receive  -  -  no
+
+# --- copies kept twice in g7-infra (install folder and systemd/): must stay identical
+twin  g7-infra:g7/backup/g7-backup.service  g7-infra:systemd/g7-backup.service
+twin  g7-infra:g7/backup/g7-backup.timer  g7-infra:systemd/g7-backup.timer
+twin  g7-infra:g7/healthchecks/g7-heartbeat.service  g7-infra:systemd/g7-heartbeat.service
+twin  g7-infra:g7/healthchecks/g7-heartbeat.timer  g7-infra:systemd/g7-heartbeat.timer
+twin  g7-infra:g7/healthchecks/ping-backup.conf  g7-infra:systemd/g7-backup.service.d/healthchecks.conf
+twin  g7-infra:g7/healthchecks/ping-mirror.conf  g7-infra:systemd/taxglasses-mirror.service.d/healthchecks.conf
+
+# --- Jenkins jobs (TaxGlasses-Rollback is not in Git yet: Phase 3 adds it).
+# The website jobs read their pipelines from their own repositories.
+job  TaxGlasses-CI  TaxGlasses:ops/jenkins/TaxGlasses-CI.Jenkinsfile
+job  TaxGlasses-Deploy  TaxGlasses:ops/jenkins/TaxGlasses-Deploy.Jenkinsfile
+job  TaxGlasses-Nightly  TaxGlasses:ops/jenkins/TaxGlasses-Nightly.Jenkinsfile
+job-scm  Aeraphim-Deploy  Jenkinsfile
+job-scm  GuatemalaHope-Deploy  Jenkinsfile
+
+# --- on G7 and deliberately not in Git (add "ignore <path>" lines here, with a reason)
+
+# --- MemeSniper's: in the memesniper-deploy repository, never checked here.
+# The GitHub mirror units for its repositories are the Git server's and are listed above;
+# a listed file is always compared, whatever these patterns say.
+ignore-glob  /etc/systemd/system/memesniper*
+ignore-glob  /etc/sudoers.d/memesniper*
+ignore-glob  /usr/local/sbin/memesniper*
+ignore-job   MemeSniper*

@@ -1,0 +1,18 @@
+[Unit]
+Description=G7 drift check: compare G7 with Git (reads only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/g7-drift --alert
+# 3 means "something differs": the alert reports it, and the unit is not marked failed.
+SuccessExitStatus=3
+Nice=15
+IOSchedulingClass=idle
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/log/g7-drift
+TimeoutStartSec=30min

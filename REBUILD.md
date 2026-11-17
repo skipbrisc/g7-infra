@@ -63,10 +63,14 @@ over an existing key.
 8. **Privileges and scripts.** `etc/sudoers.d/` and `etc/sbin/` (to `/usr/local/sbin`).
 9. **TaxGlasses.** `etc/taxglasses/` (compose file and Caddy config) in `/opt/taxglasses`,
    `g7/taxglasses-deploy`, `etc/sbin/taxglasses-fw.sh`. Deploy with the TaxGlasses-Deploy job.
-10. **MemeSniper.** Units are in `systemd/`. Restore the keypair as above. Starting any
-    study or live service follows MemeSniper's own release procedure, not this document.
+10. **MemeSniper.** Its units, drop-ins and sudoers file are in the memesniper-deploy
+    repository (`g7/`), with its G7 runbook and go-live gates (`docs/`). Restore the keypair
+    as above. Starting any study or live service follows MemeSniper's own release procedure,
+    not this document.
 11. **Backup and monitoring.** `g7/backup/`, `g7/healthchecks/`, then enable every timer in
     `systemd/`. Done when Uptime Kuma is green and Healthchecks.io shows fresh pings.
+12. **Drift check.** `g7/drift/` (its README). Its first run lists everything that still
+    differs from this repository: the rebuild is done when it reports `everything matches Git`.
 
 ## Layout
 
@@ -74,8 +78,8 @@ over an existing key.
 |---|---|
 | `systemd/` | Unit files, timers and drop-ins as they are on G7 (secrets redacted) |
 | `etc/` | Live configs and `/usr/local/sbin` scripts as they are on G7 (keys redacted) |
-| `g7/` | Install scripts and READMEs for backup, Healthchecks, ntfy, Uptime Kuma, CI tools |
-| `runbooks/` | One page per service: check, deploy, roll back, logs, restart. Plus the MemeSniper go-live gates |
+| `g7/` | Install scripts and READMEs for backup, Healthchecks, ntfy, Uptime Kuma, CI tools, and the drift check (`g7/drift/`, whose `MAP` says where every file here lives on G7) |
+| `runbooks/` | One page per service: check, deploy, roll back, logs, restart. MemeSniper's are in memesniper-deploy `docs/` |
 | `sites/`, `vaultwarden/` | Setup scripts and notes for the websites' pipelines and Vaultwarden |
 | `G7-NETWORK.md`, `VAULT-CHECKLIST.md` | Network layout and the Vaultwarden contents checklist |
 
