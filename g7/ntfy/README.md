@@ -23,6 +23,27 @@ In Jenkins: Manage Jenkins > Credentials > System > Global credentials > Add Cre
 kind *Secret text*, ID `ntfy-token`, secret = the `tk_` token. Keep the token and both
 passwords in Vaultwarden.
 
+## MemeSniper integrity publisher
+
+A separate, non-admin ntfy user for MemeSniper's integrity auditor (memesniper-deploy
+`g7/integrity/`, owned by Codex). It may only post to topic `memesniper`: no reads, no other
+topics. Its token is only in `/etc/memesniper-integrity/ntfy.token` on G7 (root:root 0600, in a
+root:root 0700 folder): never in Git, chat or a command line. Created 2026-11-17, as root on G7:
+
+    install -d -o root -g root -m 0700 /etc/memesniper-integrity
+    cd /opt/ntfy
+    docker compose exec ntfy ntfy user add memesniper-integrity
+    docker compose exec -T ntfy ntfy access memesniper-integrity memesniper write-only
+    (umask 077; docker compose exec -T ntfy ntfy token add memesniper-integrity 2>&1 \
+      | grep -o 'tk_[A-Za-z0-9_-]*' > /etc/memesniper-integrity/ntfy.token)
+
+`user add` asks for a password twice; nothing uses it afterwards. To check it:
+
+    ssh -t g7 "cd /opt/ntfy && sudo docker compose exec -T ntfy ntfy access memesniper-integrity"
+
+To replace the token: `ntfy token add memesniper-integrity` into the same file, then remove the
+old token with `ntfy token remove memesniper-integrity <old token>` in a root shell on G7.
+
 ## Phone
 
 Install the ntfy app. Settings > Default server (or "Add subscription" > "Use another server"):

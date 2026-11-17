@@ -9,9 +9,13 @@ and alerts when one doesn't arrive.
 | `g7-heartbeat` | `g7-heartbeat.timer`, every 5 minutes | 5 minutes | 10 minutes | G7 is off, frozen, or has no internet |
 | `g7-backup` | `g7-backup.service`, after a successful run | 1 day | 3 hours | last night's backup failed or never ran |
 | `taxglasses-mirror` | `taxglasses-mirror.service`, after a successful push | 5 minutes | 30 minutes | the GitHub mirror stopped |
+| `g7-drift` | `g7-drift.service`, after a run whose alert path works | 1 day | 3 hours | the server drift check failed, could not alert, or never ran |
+| `memesniper-integrity` | MemeSniper's integrity auditor (Codex's), by its own private UUID URL | 1 day | 3 hours | Created paused 2026-11-17. Codex's auditor reports success, `/fail` or `/log` itself |
 
 Pings go to `https://hc-ping.com/<ping key>/<slug>`. The ping key (Project > Settings >
 Ping key) is in `/root/.healthchecks-ping-key` on G7 and in Vaultwarden, nowhere else.
+`memesniper-integrity` is the exception: it uses its own UUID ping URL, kept only in
+`/etc/memesniper-integrity/healthchecks.url` (root:root 0600), and does not use `g7-hc-ping`.
 `g7-hc-ping` never fails its caller.
 
 ## Install (root, once)
