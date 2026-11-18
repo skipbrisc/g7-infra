@@ -7,7 +7,11 @@ Wants=network-online.target
 User=jenkins-agent
 Group=jenkins-agent
 WorkingDirectory=/var/lib/jenkins-agent
-ExecStart=/usr/bin/java -jar /var/lib/jenkins-agent/agent.jar -url http://127.0.0.1:8080/ -secret <REDACTED> -name g7-worker -webSocket -workDir /var/lib/jenkins-agent
+# The agent secret is /etc/jenkins-agent/secret (root:root 0600, not in Git). systemd gives the agent
+# a private copy in its credentials folder (%d) at each start, so the command line that every user
+# on G7 can read with ps shows only that path (REBUILD.md, secrets table).
+LoadCredential=agent-secret:/etc/jenkins-agent/secret
+ExecStart=/usr/bin/java -jar /var/lib/jenkins-agent/agent.jar -url http://127.0.0.1:8080/ -secret @%d/agent-secret -name g7-worker -webSocket -workDir /var/lib/jenkins-agent
 Restart=always
 RestartSec=10
 

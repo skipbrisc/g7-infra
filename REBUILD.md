@@ -29,7 +29,7 @@ change starts as a commit here ("Changing G7", at the end).
 | `/etc/memesniper-live/rpc.env` | MemeSniper live RPC credentials | `/etc` backup, or the Helius dashboard |
 | `/etc/taxglasses/jenkins-hook.env` | Credential the Git hook uses to start Jenkins jobs | `/etc` backup |
 | `/etc/memesniper-integrity/ntfy.token`, `healthchecks.url` | MemeSniper integrity auditor's ntfy publisher token and Healthchecks ping URL | `/etc` backup, or a new token and the check's page (`g7/ntfy/README.md`) |
-| `jenkins-agent.service` (`-secret`) | Jenkins agent secret, redacted here | `/etc` backup, or the node's page in Jenkins |
+| `/etc/jenkins-agent/secret` | Jenkins agent secret (`jenkins-agent.service` reads it through systemd, never on its command line) | `/etc` backup, or the node's page in Jenkins |
 | `/var/lib/memesniper-signer/live-keypair.json` | MemeSniper live wallet. The only key; there is no seed phrase | In the backup. Also kept separately as the encrypted file `memesniper-live-keypair.json.enc` |
 
 Keypair restore (passphrase is on paper):

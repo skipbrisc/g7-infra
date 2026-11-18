@@ -53,7 +53,7 @@ through the normal flow.
 |---|---|---|
 | Credential the Git hook uses to start Jenkins | `/etc/taxglasses/jenkins-hook.env` on G7 | New Jenkins API token, replace the file |
 | Jenkins API token for the PC scripts | `~/.jenkins-cli` on the PC | New token in Jenkins, replace the file |
-| Jenkins agent secret | `jenkins-agent.service` on G7 | From the node's page in Jenkins |
+| Jenkins agent secret | `/etc/jenkins-agent/secret` on G7 (root only; `jenkins-agent.service` reads it through systemd) | From the node's page in Jenkins |
 | Compose file and Caddy config | `/opt/taxglasses`; copies in g7-infra `etc/taxglasses/` | Edit, copy back, commit |
 
 ## Common failures
