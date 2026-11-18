@@ -1,4 +1,6 @@
 # /etc/default/prometheus-node-exporter on G7. Source: g7-infra g7/monitoring (g7-apply).
 # Listens on G7 itself only. The systemd collector adds each unit's state (failed units).
+# Debian's default skips every filesystem under /mnt and /media; this list is the same minus
+# /mnt, so the backup disk /mnt/data is measured too.
 # After a change: sudo systemctl restart prometheus-node-exporter
-ARGS="--web.listen-address=127.0.0.1:9100 --collector.systemd"
+ARGS="--web.listen-address=127.0.0.1:9100 --collector.systemd --collector.filesystem.mount-points-exclude=^/(dev|proc|run|sys|media|var/lib/docker/.+|var/lib/containers/storage/.+)($|/)"
