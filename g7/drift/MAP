@@ -64,6 +64,7 @@ file  g7-infra:g7/healthchecks/g7-hc-ping  /usr/local/sbin/g7-hc-ping  root:root
 file  g7-infra:g7/image-scan/g7-image-scan  /usr/local/sbin/g7-image-scan  root:root  0700  yes
 file  g7-infra:g7/drift/g7-drift  /usr/local/sbin/g7-drift  root:root  0700  yes
 file  g7-infra:g7/apply/g7-apply  /usr/local/sbin/g7-apply  root:root  0700  no
+file  g7-infra:g7/backup/g7-restore-drill  /usr/local/sbin/g7-restore-drill  root:root  0700  yes
 file  g7-infra:g7/taxglasses-deploy  /usr/local/sbin/taxglasses-deploy  root:root  0755  yes  taxglasses-deploy
 file  g7-infra:etc/sbin/vaultwarden-backup.sh  /usr/local/sbin/vaultwarden-backup.sh  root:root  0755  yes
 file  g7-infra:etc/sbin/ap-firewall.sh  /usr/local/sbin/ap-firewall.sh  root:root  0755  no

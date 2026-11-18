@@ -13,6 +13,7 @@ change starts as a commit here ("Changing G7", at the end).
    disk (`g7/backup/README.md` lists what is in it and how to restore). The same snapshots are
    copied each night to a second repository on the Miami server
    (`sftp:mia-backup:/srv/backups/g7/restic`, reached from G7 over the wg-mia tunnel).
+   `sudo g7-restore-drill` proves both copies restore (`g7/backup/README.md`, "Restore drill").
 2. **The restic repository password.** It is in Vaultwarden, but Vaultwarden's own data is
    inside the backup, so also keep it on paper.
 3. **The secrets below.** They all come back with the backup (`/etc`, `/root` and the

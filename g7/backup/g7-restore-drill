@@ -1,0 +1,213 @@
+#!/bin/sh
+# /usr/local/sbin/g7-restore-drill on G7 (root:root 0700). Source: g7/backup/g7-restore-drill in the
+# g7-infra repo; installed by g7-apply.
+# Proves the nightly backup can be restored, from G7's own disk and from Miami, without touching
+# anything live: restores a sample of the latest snapshot from each repository into a private
+# scratch folder, checks it, compares the two copies, and deletes the folder. Then, at a terminal,
+# it asks for the two secrets kept on paper. Prints PASS, WARN or FAIL per check; exit 0 when
+# nothing failed. Changes nothing: no restore over anything live, no backup, prune or unlock.
+#
+#   sudo g7-restore-drill               everything, including the two paper secrets
+#   sudo g7-restore-drill --no-paper    skip the paper secrets
+#
+# The wallet key is checked only by its SHA-256, streamed from the backup into sha256sum: no
+# copy of it is written anywhere. Reports (no secrets) are kept in /var/log/g7-restore-drill/.
+set -u
+set -f   # the sample patterns below are for restic, never for the shell
+umask 077
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export RESTIC_PASSWORD_FILE=/root/.restic-g7
+export RESTIC_CACHE_DIR=/var/cache/restic
+LOCAL=/mnt/data/G7-backups/restic
+MIAMI=sftp:mia-backup:/srv/backups/g7/restic
+KEY=/var/lib/memesniper-signer/live-keypair.json
+KEY_ENC=/root/memesniper-live-keypair.json.enc
+KEY_SHA=338c18faee6ea23d1b788907c9c2ee51c8a28ed00abe1e54596eef5f4d509520
+LOGDIR=/var/log/g7-restore-drill
+MAX_AGE_HOURS=30
+MIN_FREE_GB=10
+# The sample: what a rebuild needs first, small enough to restore twice in a few minutes.
+SAMPLE="--include /srv/git/repos/g7-infra.git --include /srv/git/repos/TaxGlasses.git
+ --include /var/backups/g7-stage --include /var/lib/jenkins/config.xml
+ --include /var/lib/jenkins/jobs/*/config.xml --include /etc/fstab
+ --include /etc/ssh/sshd_config.d --include /etc/sudoers.d --include /etc/systemd/system/g7-*"
+
+PAPER=1
+case "${1:-}" in
+  "") ;;
+  --no-paper) PAPER=0 ;;
+  *) echo "usage: g7-restore-drill [--no-paper]" >&2; exit 2 ;;
+esac
+[ "$(id -u)" = 0 ] || { echo "run as root: sudo g7-restore-drill" >&2; exit 2; }
+if [ "$PAPER" = 1 ] && ! [ -t 0 ]; then PAPER=0; echo "No terminal: the paper secrets are skipped."; fi
+
+mkdir -p -m 0700 "$LOGDIR"
+REPORT="$LOGDIR/$(date +%Y%m%d-%H%M%S).txt"
+: > "$REPORT"
+S=$(mktemp -d /var/tmp/g7-restore-drill.XXXXXX) || { echo "cannot make a scratch folder" >&2; exit 1; }
+trap 'rm -rf "$S"' EXIT
+trap 'rm -rf "$S"; exit 130' INT TERM
+NPASS=0; NWARN=0; NFAIL=0
+say()  { printf '%s\n' "$*" | tee -a "$REPORT"; }
+pass() { NPASS=$((NPASS + 1)); say "  PASS  $*"; }
+warn() { NWARN=$((NWARN + 1)); say "  WARN  $*"; }
+fail() { NFAIL=$((NFAIL + 1)); say "  FAIL  $*"; }
+r()    { nice -n 10 restic "$@"; }
+
+# "<short id> <local time> <age in hours>" of a repository's newest snapshot, or nothing.
+snap() {
+  r -r "$1" snapshots latest --json 2>/dev/null | python3 -c '
+import datetime, json, re, sys
+s = json.load(sys.stdin)
+if not s:
+    sys.exit(1)
+s = max(s, key=lambda x: x["time"])
+t = datetime.datetime.fromisoformat(re.sub(r"\.\d+", "", s["time"]))
+age = (datetime.datetime.now(datetime.timezone.utc) - t).total_seconds() / 3600
+print(s["short_id"], t.astimezone().strftime("%Y-%m-%d_%H:%M"), "%.1f" % age)'
+}
+
+check_repo() { # name, repository. Sets SNAPTIME.
+  SNAPTIME=
+  info=$(snap "$2") || info=
+  if [ -z "$info" ]; then fail "$1: no snapshot could be listed"; return 1; fi
+  set -- "$1" "$2" $info
+  SNAPTIME=$4
+  if python3 -c "import sys; sys.exit(0 if float('$5') <= $MAX_AGE_HOURS else 1)"; then
+    pass "$1: newest snapshot $3 from $4 ($5 h old)"
+  else
+    fail "$1: newest snapshot $3 is $5 h old (more than $MAX_AGE_HOURS)"
+  fi
+  if r -r "$2" check -q >/dev/null 2>"$S/check.err"; then
+    pass "$1: repository structure checks out (restic check)"
+  else
+    fail "$1: restic check reported a problem: $(tail -n 2 "$S/check.err" | tr '\n' ' ')"
+  fi
+}
+
+restore_sample() { # name, repository, target
+  # shellcheck disable=SC2086  # SAMPLE is a word list, globbing is off
+  if r -r "$2" restore latest --target "$3" -q $SAMPLE >/dev/null 2>"$S/restore.err"; then
+    pass "$1: sample restored ($(du -sh "$3" | cut -f1))"
+  else
+    fail "$1: restore of the sample failed: $(tail -n 2 "$S/restore.err" | tr '\n' ' ')"
+    return 1
+  fi
+}
+
+check_sample() { # name, restored root
+  for repo in g7-infra TaxGlasses; do
+    d="$2/srv/git/repos/$repo.git"
+    if [ -d "$d" ] && git -c safe.directory='*' -C "$d" fsck --no-progress --no-dangling >/dev/null 2>&1; then
+      pass "$1: Git repository $repo is complete (git fsck); $(git -c safe.directory='*' -C "$d" for-each-ref --count=1 --sort=-committerdate --format='newest commit %(committerdate:short) on %(refname:short)')"
+    else
+      fail "$1: Git repository $repo is missing or damaged"
+    fi
+  done
+  db="$2/var/backups/g7-stage/vaultwarden-db.sqlite3"
+  if [ -f "$db" ] && [ "$(sqlite3 -readonly "$db" 'PRAGMA integrity_check;' 2>/dev/null)" = ok ]; then
+    n=$(sqlite3 -readonly "$db" 'select count(*) from ciphers;' 2>/dev/null)
+    live=$(sqlite3 -readonly /srv/vaultwarden/data/db.sqlite3 'select count(*) from ciphers;' 2>/dev/null || echo '?')
+    if [ "$n" = "$live" ]; then pass "$1: Vaultwarden database is sound, $n items (live: $live)"
+    else warn "$1: Vaultwarden database is sound, $n items; live has $live (changed since the snapshot?)"; fi
+  else
+    fail "$1: Vaultwarden database copy is missing or damaged"
+  fi
+  for f in ntfy-user.db uptime-kuma.db; do
+    db="$2/var/backups/g7-stage/$f"
+    if [ -f "$db" ] && [ "$(sqlite3 -readonly "$db" 'PRAGMA integrity_check;' 2>/dev/null)" = ok ]; then
+      pass "$1: $f is sound"
+    else
+      warn "$1: $f is missing or damaged"
+    fi
+  done
+  if out=$(python3 - "$2/var/lib/jenkins" /var/lib/jenkins <<'PY'
+import os, re, sys, xml.etree.ElementTree as ET
+restored, live = sys.argv[1], sys.argv[2]
+def jobs(root):
+    d = os.path.join(root, "jobs")
+    return sorted(j for j in os.listdir(d) if os.path.isfile(os.path.join(d, j, "config.xml")))
+got, want = jobs(restored), jobs(live)
+for j in got + [None]:
+    p = os.path.join(restored, "config.xml") if j is None else os.path.join(restored, "jobs", j, "config.xml")
+    ET.fromstring(re.sub(r"^\s*<\?xml[^>]*\?>", "", open(p, encoding="utf-8", errors="replace").read()))
+missing = [j for j in want if j not in got]
+print(len(got), "job configs" + ("; not in the snapshot: " + ", ".join(missing) if missing else ""))
+sys.exit(3 if missing else 0)
+PY
+  ); then pass "$1: Jenkins configuration reads, $out"
+  else
+    case $? in 3) warn "$1: Jenkins configuration reads, $out" ;; *) fail "$1: Jenkins configuration is missing or unreadable" ;; esac
+  fi
+  for f in /etc/fstab /etc/ssh/sshd_config.d/00-key-only.conf; do
+    if [ ! -f "$2$f" ]; then fail "$1: $f is not in the snapshot"
+    elif cmp -s "$2$f" "$f"; then pass "$1: $f matches the live file"
+    else warn "$1: $f differs from the live file (changed since the snapshot?)"; fi
+  done
+}
+
+check_key() { # name, repository
+  h=$(r -r "$2" dump latest "$KEY" 2>/dev/null | sha256sum | cut -d' ' -f1)
+  if [ "$h" = "$KEY_SHA" ]; then pass "$1: MemeSniper wallet key in the snapshot has the right SHA-256"
+  else fail "$1: MemeSniper wallet key in the snapshot is missing or has the wrong SHA-256"; fi
+}
+
+say "G7 restore drill, $(date '+%Y-%m-%d %H:%M %Z') ($(restic version 2>/dev/null | cut -d' ' -f1-2))"
+free=$(df -B1G --output=avail /var/tmp | tail -n 1 | tr -d ' ')
+if [ "$free" -lt "$MIN_FREE_GB" ]; then
+  fail "only ${free} GB free in /var/tmp; the drill needs $MIN_FREE_GB"; say "RESULT: stopped"; exit 1
+fi
+mountpoint -q /mnt/data || { fail "the backup disk /mnt/data is not mounted"; say "RESULT: stopped"; exit 1; }
+
+say ""; say "G7's own copy ($LOCAL)"
+check_repo "G7 disk" "$LOCAL"; LOCALTIME=$SNAPTIME
+restore_sample "G7 disk" "$LOCAL" "$S/local" && check_sample "G7 disk" "$S/local"
+check_key "G7 disk" "$LOCAL"
+
+say ""; say "Off-site copy ($MIAMI)"
+check_repo "Miami" "$MIAMI"; MIAMITIME=$SNAPTIME
+if [ -n "$LOCALTIME" ] && [ "$LOCALTIME" = "$MIAMITIME" ]; then
+  pass "Miami: holds G7's newest snapshot ($MIAMITIME)"
+else
+  fail "Miami: newest snapshot is ${MIAMITIME:-none}, G7's is ${LOCALTIME:-none}: last night's copy did not arrive"
+fi
+if restore_sample "Miami" "$MIAMI" "$S/miami"; then
+  if [ -n "$LOCALTIME" ] && [ "$LOCALTIME" = "$MIAMITIME" ]; then
+    if diff -r --no-dereference "$S/local" "$S/miami" >/dev/null 2>&1; then
+      pass "Miami: its sample is identical to G7's, file for file"
+    else
+      fail "Miami: its sample differs from G7's for the same snapshot"
+    fi
+  else
+    check_sample "Miami" "$S/miami"
+  fi
+fi
+check_key "Miami" "$MIAMI"
+rm -rf "$S/local" "$S/miami"
+
+if [ "$PAPER" = 1 ]; then
+  say ""; say "The two secrets on paper"
+  echo "Type the restic repository password from paper (it opens the Miami copy; nothing is shown):"
+  if env -u RESTIC_PASSWORD_FILE restic -r "$MIAMI" cat config >/dev/null; then
+    pass "paper: the restic password opens the Miami repository"
+  else
+    fail "paper: the restic password from paper did not open the Miami repository"
+  fi
+  echo "Type the wallet key's encryption passphrase from paper (it decrypts the copy kept in the Miami backup; nothing is written):"
+  h=$(r -r "$MIAMI" dump latest "$KEY_ENC" 2>/dev/null \
+      | openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 | sha256sum | cut -d' ' -f1)
+  if [ "$h" = "$KEY_SHA" ]; then
+    pass "paper: the passphrase decrypts the wallet key's encrypted copy to the right key"
+  else
+    fail "paper: the encrypted copy did not decrypt to the right key (wrong passphrase, or the copy is missing)"
+  fi
+else
+  say ""; say "The two secrets on paper: skipped"
+fi
+
+say ""
+if [ "$NFAIL" -eq 0 ]; then say "RESULT: $NPASS passed, $NWARN warning(s), nothing failed"
+else say "RESULT: $NFAIL FAILED, $NPASS passed, $NWARN warning(s)"; fi
+say "Report: $REPORT"
+ls -1t "$LOGDIR" | grep '\.txt$' | tail -n +21 | while read -r old; do rm -f "$LOGDIR/$old"; done
+[ "$NFAIL" -eq 0 ]

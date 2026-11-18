@@ -40,6 +40,26 @@ script the ntfy token Jenkins uses (from Vaultwarden, `tk_...`):
 
     ssh -t g7-taxglasses "sudo systemctl start g7-backup.service; sudo journalctl -u g7-backup.service -n 5 --no-pager"
 
+## Restore drill
+
+`sudo g7-restore-drill` proves the backup can be restored, from both copies, without touching
+anything live. It restores a sample of the newest snapshot from G7's disk and from Miami into a
+private scratch folder in `/var/tmp` (both Git repositories that matter most, the database
+copies, Jenkins' configuration and a few files from `/etc`), checks each part (`git fsck`,
+SQLite integrity, the job configs read), compares Miami's sample with G7's file for file, and
+deletes the folder. It also runs `restic check` on both repositories and checks the MemeSniper
+wallet key in each by its SHA-256, streamed from the backup into `sha256sum` so no copy of the
+key is written. Last, at a terminal, it asks for the two secrets kept on paper: the restic
+password (it must open the Miami repository) and the wallet key's encryption passphrase (it
+must decrypt the encrypted copy in the backup to the right key). `--no-paper` skips those.
+
+Each line is PASS, WARN or FAIL. WARN means something changed on G7 since the snapshot (an
+item added to Vaultwarden, a new Jenkins job), which is expected during the day. Exit 0 when
+nothing failed. Reports, without secrets, are kept in `/var/log/g7-restore-drill/` (the last 20).
+It needs 10 GB free in `/var/tmp` and takes a few minutes, most of it Miami's `restic check`.
+Run it every three months, after any change to the backup, and before relying on the backup
+for anything risky.
+
 ## Restore
 
     sudo -i
