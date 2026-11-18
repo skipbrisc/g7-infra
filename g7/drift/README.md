@@ -34,7 +34,7 @@ then DETAILS holds the diffs and NOTES lists what was not checked and the live c
 
 | Difference | What to do |
 |---|---|
-| `differs` | Someone changed G7 or Git. Keep G7's version: copy it into Git and commit. Keep Git's: put it back on G7 (Phase 2 makes this `g7-apply`) |
+| `differs` | Someone changed G7 or Git. Keep G7's version: copy it into Git and commit. Keep Git's: `sudo g7-apply` for a `yes` file, by hand for a `no` file |
 | `on G7, not in Git` | Copy it into g7-infra and add a `file` line, or add an `ignore` line with a reason |
 | `in Git, not in MAP` | Add a `file` line, or remove the stale copy from Git |
 | `Jenkins job differs` / `not in Git` | Compare with `scripts/jenkins-jobs.ps1` in TaxGlasses and decide which side is right |

@@ -4,6 +4,9 @@ This repository holds the configuration, scripts and notes needed to rebuild G7 
 Debian 13, 192.168.0.6). It holds no secrets and no data. Written 2026-11-12 from the files
 here; the procedure has not been tested end to end.
 
+Since 2026-11-18 this repository is the source for G7's configuration and G7 follows it: a
+change starts as a commit here ("Changing G7", at the end).
+
 ## What you need besides this repository
 
 1. **The latest backup.** restic, nightly, in `/mnt/data/G7-backups/restic` on G7's second
@@ -70,19 +73,38 @@ over an existing key.
     not this document.
 11. **Backup and monitoring.** `g7/backup/`, `g7/healthchecks/`, then enable every timer in
     `systemd/`. Done when Uptime Kuma is green and Healthchecks.io shows fresh pings.
-12. **Drift check.** `g7/drift/` (its README). Its first run lists everything that still
-    differs from this repository: the rebuild is done when it reports `everything matches Git`.
+12. **Drift check and apply.** `g7/drift/`, then `g7/apply/` (their READMEs). The drift
+    check's first run lists everything that still differs from this repository; `g7-apply`
+    puts back the files it may change, and the rest are copied by hand. The rebuild is done
+    when the drift check reports `everything matches Git`.
 
 ## Layout
 
 | Path | Contents |
 |---|---|
-| `systemd/` | Unit files, timers and drop-ins as they are on G7 (secrets redacted) |
-| `etc/` | Live configs and `/usr/local/sbin` scripts as they are on G7 (keys redacted) |
-| `g7/` | Install scripts and READMEs for backup, Healthchecks, ntfy, Uptime Kuma, CI tools, and the drift check (`g7/drift/`, whose `MAP` says where every file here lives on G7) |
+| `systemd/` | Unit files, timers and drop-ins as G7 should have them (secrets redacted) |
+| `etc/` | Configs and `/usr/local/sbin` scripts as G7 should have them (keys redacted) |
+| `g7/` | Install scripts and READMEs for backup, Healthchecks, ntfy, Uptime Kuma, CI tools, `taxglasses-deploy`, the drift check (`g7/drift/`, whose `MAP` says where every file here lives on G7) and `g7-apply` (`g7/apply/`) |
 | `runbooks/` | One page per service: check, deploy, roll back, logs, restart. MemeSniper's are in memesniper-deploy `docs/` |
 | `sites/`, `vaultwarden/` | Setup scripts and notes for the websites' pipelines and Vaultwarden |
 | `G7-NETWORK.md`, `VAULT-CHECKLIST.md` | Network layout and the Vaultwarden contents checklist |
 
-`systemd/` and `etc/` are snapshots. After changing anything on G7, copy the changed file
-here and commit, or this repository drifts from the server.
+## Changing G7
+
+Git is the source and G7 follows it. For any file listed in `g7/drift/MAP`:
+
+1. Change it here, commit, and `git push g7 main`.
+2. If its `MAP` line says `yes` (such as the mirror, backup, heartbeat, image-scan, drift and
+   DuckDNS units and scripts, `g7-hc-ping`, `taxglasses-deploy` and the Java hold):
+   `ssh -t g7 "sudo g7-apply"` shows the diff and applies it when you type `yes`
+   (`g7/apply/README.md`). To undo, revert the commit, push and apply again.
+3. If it says `no` (SSH, sudoers, network, WireGuard, hostapd, the firewall, the compose files
+   and configs of TaxGlasses, ntfy and Uptime Kuma, the TaxGlasses Git hook, any file with a
+   redacted secret, and `g7-apply` itself): make the same change on G7 by hand in a root shell.
+   A mistake in most of these could lock you out or cut G7 off, so they are never applied from Git.
+
+Every night at 05:10 the drift check reports anything on G7 that differs from Git, with the
+diff (ntfy topic `g7`, report in `/var/log/g7-drift/latest.txt`). A change made on G7 first,
+such as an emergency fix, shows up there the next morning: commit it here, or apply Git over it.
+MemeSniper's own units, sudoers file and state are not in this repository (memesniper-deploy has
+them) and are never checked or applied from here.
