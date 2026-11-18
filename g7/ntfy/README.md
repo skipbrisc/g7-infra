@@ -44,6 +44,18 @@ root:root 0700 folder): never in Git, chat or a command line. Created 2026-11-17
 To replace the token: `ntfy token add memesniper-integrity` into the same file, then remove the
 old token with `ntfy token remove memesniper-integrity <old token>` in a root shell on G7.
 
+## Alertmanager publisher
+
+The ntfy user `alertmanager` sends G7's monitoring alerts (g7-infra `g7/monitoring/`, "Alerts").
+It may only post to topic `g7`. Its token is only in `/etc/prometheus/ntfy-alerts.token` on G7
+(root:prometheus 0640). `g7/monitoring/install.sh` creates the user, its access and the token
+the first time it runs, with a random password nothing uses. To check it:
+
+    ssh -t g7 "cd /opt/ntfy && sudo docker compose exec -T ntfy ntfy access alertmanager"
+
+To replace the token: `ntfy token add alertmanager` into the same file, restart
+`prometheus-alertmanager`, then `ntfy token remove alertmanager <old token>`.
+
 ## Phone
 
 Install the ntfy app. Settings > Default server (or "Add subscription" > "Use another server"):

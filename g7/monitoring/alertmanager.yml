@@ -1,0 +1,36 @@
+# /etc/prometheus/alertmanager.yml on G7. Source: g7-infra g7/monitoring/alertmanager.yml (g7-apply).
+# Sends firing and resolved alerts to ntfy topic g7 as the write-only ntfy user "alertmanager".
+# Its token is in /etc/prometheus/ntfy-alerts.token (root:prometheus 0640), never in this file.
+# ntfy turns Alertmanager's JSON into a readable title and message with its templates (tpl=yes):
+#   title    G7 alert: <alertname> (firing|resolved)
+#   message  one line per alert, its summary
+# Check before restarting: amtool check-config /etc/prometheus/alertmanager.yml
+route:
+  receiver: ntfy-default
+  group_by: [alertname]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  routes:
+    - matchers: ['severity="high"']
+      receiver: ntfy-high
+
+receivers:
+  - name: ntfy-high
+    webhook_configs:
+      - url: 'http://127.0.0.1:2586/g7?tpl=yes&priority=high&tags=rotating_light&t=G7%20alert%3A%20%7B%7B.commonLabels.alertname%7D%7D%20%28%7B%7B.status%7D%7D%29&m=%7B%7Brange%20.alerts%7D%7D%7B%7B.annotations.summary%7D%7D%0A%7B%7Bend%7D%7D'
+        send_resolved: true
+        max_alerts: 10
+        http_config:
+          authorization:
+            type: Bearer
+            credentials_file: /etc/prometheus/ntfy-alerts.token
+  - name: ntfy-default
+    webhook_configs:
+      - url: 'http://127.0.0.1:2586/g7?tpl=yes&priority=default&tags=warning&t=G7%20alert%3A%20%7B%7B.commonLabels.alertname%7D%7D%20%28%7B%7B.status%7D%7D%29&m=%7B%7Brange%20.alerts%7D%7D%7B%7B.annotations.summary%7D%7D%0A%7B%7Bend%7D%7D'
+        send_resolved: true
+        max_alerts: 10
+        http_config:
+          authorization:
+            type: Bearer
+            credentials_file: /etc/prometheus/ntfy-alerts.token

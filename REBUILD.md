@@ -26,6 +26,7 @@ change starts as a commit here ("Changing G7", at the end).
 | `/root/.ntfy-g7-token` | ntfy token for alerts | Vaultwarden |
 | `/root/.healthchecks-ping-key` | Healthchecks.io ping key | Healthchecks.io project settings |
 | `/opt/grafana/admin_password` | Grafana's admin password | `/opt` backup, or Vaultwarden |
+| `/etc/prometheus/ntfy-alerts.token` | Alertmanager's ntfy token (topic `g7` only) | `/etc` backup, or `g7/monitoring/install.sh` makes a new one |
 | `/root/.restic-mia-rest` | Login to Miami's append-only backup server | `/root` backup, or a new password and its hash on Miami (`mia/README.md`, "Backup target") |
 | `/etc/duckdns.conf` | DuckDNS token (curl config) | `/etc` backup, or duckdns.org |
 | `/etc/wireguard/wg0.conf` (PrivateKey) | VPN server key | `/etc` backup. A new key means reissuing every client config |

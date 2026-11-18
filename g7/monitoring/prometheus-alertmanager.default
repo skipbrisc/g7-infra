@@ -1,0 +1,4 @@
+# /etc/default/prometheus-alertmanager on G7. Source: g7-infra g7/monitoring (g7-apply).
+# On G7 itself only, and no cluster port (one Alertmanager, no peers). After a change:
+# sudo systemctl restart prometheus-alertmanager
+ARGS="--config.file=/etc/prometheus/alertmanager.yml --storage.path=/var/lib/prometheus/alertmanager/ --web.listen-address=127.0.0.1:9093 --cluster.listen-address="

@@ -98,6 +98,10 @@ file  g7-infra:g7/monitoring/prometheus-node-exporter.default  /etc/default/prom
 file  g7-infra:g7/monitoring/prometheus-process-exporter.default  /etc/default/prometheus-process-exporter  root:root  0644  yes
 file  g7-infra:g7/monitoring/exporter-hardening.conf  /etc/systemd/system/prometheus-node-exporter.service.d/hardening.conf  root:root  0644  yes
 file  g7-infra:g7/monitoring/exporter-hardening.conf  /etc/systemd/system/prometheus-process-exporter.service.d/hardening.conf  root:root  0644  yes
+file  g7-infra:g7/monitoring/exporter-hardening.conf  /etc/systemd/system/prometheus-alertmanager.service.d/hardening.conf  root:root  0644  yes
+file  g7-infra:g7/monitoring/alerts.yml  /etc/prometheus/rules/g7.yml  root:root  0644  yes
+file  g7-infra:g7/monitoring/alertmanager.yml  /etc/prometheus/alertmanager.yml  root:root  0644  yes
+file  g7-infra:g7/monitoring/prometheus-alertmanager.default  /etc/default/prometheus-alertmanager  root:root  0644  yes
 file  g7-infra:g7/monitoring/grafana/docker-compose.yml  /opt/grafana/docker-compose.yml  root:root  0644  no
 file  g7-infra:g7/monitoring/grafana/provisioning/datasources/prometheus.yml  /opt/grafana/provisioning/datasources/prometheus.yml  root:root  0644  yes
 file  g7-infra:g7/monitoring/grafana/provisioning/dashboards/g7.yml  /opt/grafana/provisioning/dashboards/g7.yml  root:root  0644  yes
