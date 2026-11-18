@@ -200,14 +200,20 @@ if [ "$PAPER" = 1 ]; then
   else
     fail "paper: the restic password from paper did not open the Miami repository"
   fi
-  echo "Type the wallet key's encryption passphrase from paper (it decrypts the copy kept in the Miami backup; nothing is written):"
-  h=$(r -r "$MIAMI" dump latest "$KEY_ENC" 2>/dev/null \
-      | openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 | sha256sum | cut -d' ' -f1)
-  if [ "$h" = "$KEY_SHA" ]; then
-    pass "paper: the passphrase decrypts the wallet key's encrypted copy to the right key"
+  # The encrypted copy is fetched whole first, so restic always finishes and removes its lock, even
+  # when openssl stops early. Only the decrypted key is never written: it goes straight to sha256sum.
+  if r -r "$MIAMI" dump latest "$KEY_ENC" > "$S/key.enc" 2>/dev/null && [ -s "$S/key.enc" ]; then
+    echo "Type the wallet key's encryption passphrase from paper (it decrypts the copy kept in the Miami backup; the key is not written):"
+    h=$(openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in "$S/key.enc" | sha256sum | cut -d' ' -f1)
+    if [ "$h" = "$KEY_SHA" ]; then
+      pass "paper: the passphrase decrypts the wallet key's encrypted copy to the right key"
+    else
+      fail "paper: the passphrase did not decrypt the encrypted copy to the right key"
+    fi
   else
-    fail "paper: the encrypted copy did not decrypt to the right key (wrong passphrase, or the copy is missing)"
+    fail "paper: the wallet key's encrypted copy ($KEY_ENC) is not in Miami's snapshot"
   fi
+  rm -f "$S/key.enc"
 else
   say ""; say "The two secrets on paper: skipped"
 fi
