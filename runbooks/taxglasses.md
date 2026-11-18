@@ -1,7 +1,8 @@
 # Runbook: TaxGlasses
 
 ## What it is
-The tax web form. Live at `http://10.77.0.1:8090`, reachable only over WireGuard. Runs on G7
+The tax web form. Live at `http://192.168.0.6:8090` on the home LAN and `http://10.77.0.1:8090` over
+WireGuard (the tg1/tg2 logins reach only the second). Runs on G7
 as two containers, blue and green, behind a Caddy proxy; one is live and the other is where
 the next release is staged. Previews: blue `:8091`, green `:8092`. Everything is root's, in
 `/opt/taxglasses`. Full detail: `D:\TaxGlasses\docs\deploy.md`.

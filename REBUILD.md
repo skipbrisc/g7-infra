@@ -54,8 +54,8 @@ over an existing key.
    (`etc/ssh/00-key-only.conf`). Install your public key before turning passwords off.
 2. **Network.** `etc/network/interfaces`, `etc/hostapd/`, `etc/sbin/ap-firewall.sh`.
    `G7-NETWORK.md` explains the layout; `persist-g7.sh` makes it survive reboots.
-3. **VPN.** `etc/wireguard/wg0.conf`, the drop-ins in `systemd/wg-quick@wg0.service.d/`,
-   and the `duckdns` units.
+3. **VPN.** `etc/wireguard/wg0.conf` and `etc/wireguard/wg-mia.conf` (the Miami link), the
+   drop-ins in `systemd/wg-quick@wg0.service.d/`, and the `duckdns` units.
 4. **Data.** Install Docker and restic, restore the backup to a scratch folder, and copy
    back `/srv/git/repos`, `/srv/vaultwarden`, `/var/lib/jenkins`, `/opt/taxglasses`,
    `/opt/ntfy`, `/opt/uptime-kuma` and `/var/lib/memesniper`. Never restore over a running

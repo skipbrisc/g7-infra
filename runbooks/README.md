@@ -12,7 +12,8 @@ week. Fix a page the moment you find it wrong.
 | [guatemalahope.md](guatemalahope.md) | guatemalahope.org | Vercel, deployed by Jenkins on G7 |
 | memesniper-deploy `docs/GO-LIVE-GATES.md` | What must be true before MemeSniper trades real money | Draft |
 
-Rebuilding G7 from nothing is [../REBUILD.md](../REBUILD.md).
+Rebuilding G7 from nothing is [../REBUILD.md](../REBUILD.md). How G7, Miami and the home network
+fit together is [../INFRA.md](../INFRA.md).
 
 ## G7 itself
 
@@ -24,6 +25,7 @@ first. Root work: `sudo -i` and your password.
 | Look at | What it tells you |
 |---|---|
 | Uptime Kuma, `http://192.168.0.6:3001` | Each service answering, checked every minute |
+| Grafana, `http://192.168.0.6:3000` | CPU, memory, swap, disk and network over time, per service; Alertmanager sends disk, memory, swap and failed-service alerts to ntfy `g7` |
 | healthchecks.io | G7 alive (`g7-heartbeat`), last night's backup ran (`g7-backup`), mirrors pushing |
 | ntfy on your phone (topics `g7`, `taxglasses`, `sites`, `memesniper`) | Alerts from all of the above and from Jenkins |
 | Jenkins, `http://192.168.0.6:8080` | Build and deploy results |
@@ -49,8 +51,10 @@ One command, read-only, from `D:\TaxGlasses`:
     restic snapshots
     restic restore latest --target /tmp/restore --include <path>
 
-Miami copy: `RESTIC_REPOSITORY=sftp:mia-backup:/srv/backups/g7/restic`. Restore to a scratch
-folder and copy back; never restore over a running service.
+Miami copy: first `set -a; . /root/.restic-mia-rest; set +a` (the REST login), then
+`RESTIC_REPOSITORY=rest:http://10.78.0.1:8000/g7/restic/`. Miami is append-only: restoring
+works, deleting does not. Restore to a scratch folder and copy back; never restore over a
+running service. `sudo g7-restore-drill` checks both copies end to end.
 
 **Secrets.** All in Vaultwarden. The restic password and the MemeSniper keypair passphrase
 are also on paper, because Vaultwarden's own data is inside the backup they unlock.
