@@ -90,6 +90,19 @@ file  g7-infra:g7/ntfy/docker-compose.yml  /opt/ntfy/docker-compose.yml  root:ro
 file  g7-infra:g7/ntfy/server.yml  /opt/ntfy/etc/server.yml  root:root  0644  no
 file  g7-infra:g7/uptime-kuma/docker-compose.yml  /opt/uptime-kuma/docker-compose.yml  root:root  0644  no
 
+# --- Monitoring (g7/monitoring/): Prometheus and exporters from Debian, Grafana in Docker
+file  g7-infra:g7/monitoring/prometheus.yml  /etc/prometheus/prometheus.yml  root:root  0644  yes
+file  g7-infra:g7/monitoring/process-exporter.yml  /etc/prometheus/process-exporter.yml  root:root  0644  yes
+file  g7-infra:g7/monitoring/prometheus.default  /etc/default/prometheus  root:root  0644  yes
+file  g7-infra:g7/monitoring/prometheus-node-exporter.default  /etc/default/prometheus-node-exporter  root:root  0644  yes
+file  g7-infra:g7/monitoring/prometheus-process-exporter.default  /etc/default/prometheus-process-exporter  root:root  0644  yes
+file  g7-infra:g7/monitoring/exporter-hardening.conf  /etc/systemd/system/prometheus-node-exporter.service.d/hardening.conf  root:root  0644  yes
+file  g7-infra:g7/monitoring/exporter-hardening.conf  /etc/systemd/system/prometheus-process-exporter.service.d/hardening.conf  root:root  0644  yes
+file  g7-infra:g7/monitoring/grafana/docker-compose.yml  /opt/grafana/docker-compose.yml  root:root  0644  no
+file  g7-infra:g7/monitoring/grafana/provisioning/datasources/prometheus.yml  /opt/grafana/provisioning/datasources/prometheus.yml  root:root  0644  yes
+file  g7-infra:g7/monitoring/grafana/provisioning/dashboards/g7.yml  /opt/grafana/provisioning/dashboards/g7.yml  root:root  0644  yes
+file  g7-infra:g7/monitoring/grafana/provisioning/dashboards/g7.json  /opt/grafana/provisioning/dashboards/g7.json  root:root  0644  yes
+
 # --- Git hooks on G7
 file  g7-infra:g7/hooks/TaxGlasses-post-receive  /srv/git/repos/TaxGlasses.git/hooks/post-receive  git:git  0755  no
 

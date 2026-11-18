@@ -1,0 +1,4 @@
+# /etc/default/prometheus on G7. Source: g7-infra g7/monitoring/prometheus.default (g7-apply).
+# Prometheus listens on G7 itself only; Grafana reads it at 127.0.0.1:9090. After a change:
+# sudo systemctl restart prometheus
+ARGS="--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/var/lib/prometheus/metrics2/ --web.listen-address=127.0.0.1:9090 --storage.tsdb.retention.time=400d --storage.tsdb.retention.size=5GB"

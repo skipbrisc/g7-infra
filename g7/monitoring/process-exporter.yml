@@ -1,0 +1,9 @@
+# /etc/prometheus/process-exporter.yml on G7. Source: g7-infra g7/monitoring (g7-apply).
+# One group per user a process runs as. On G7 every service has its own user (jenkins,
+# jenkins-agent for CI builds, git, the MemeSniper users, ...), so the groups are services.
+# It reads only what ps shows (CPU, memory, swap per process), never any file of theirs.
+# Kernel threads have no command line and are left out.
+process_names:
+  - name: "{{.Username}}"
+    cmdline:
+      - ".+"

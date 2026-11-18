@@ -1,0 +1,20 @@
+# /etc/prometheus/prometheus.yml on G7. Source: g7-infra g7/monitoring/prometheus.yml (g7-apply).
+# Check before restarting: promtool check config /etc/prometheus/prometheus.yml
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["127.0.0.1:9090"]
+  # The host: CPU, memory, swap, disks, network, systemd unit states.
+  - job_name: node
+    static_configs:
+      - targets: ["127.0.0.1:9100"]
+        labels: {host: g7}
+  # CPU, memory and swap per user. Each G7 service runs as its own user, so this is per service.
+  - job_name: process
+    static_configs:
+      - targets: ["127.0.0.1:9256"]
+        labels: {host: g7}

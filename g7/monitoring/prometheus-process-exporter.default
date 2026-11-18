@@ -1,0 +1,4 @@
+# /etc/default/prometheus-process-exporter on G7. Source: g7-infra g7/monitoring (g7-apply).
+# Listens on G7 itself only; groups processes as process-exporter.yml says; no per-thread series.
+# After a change: sudo systemctl restart prometheus-process-exporter
+ARGS="-web.listen-address=127.0.0.1:9256 -config.path=/etc/prometheus/process-exporter.yml -threads=false"

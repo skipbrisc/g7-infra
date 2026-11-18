@@ -1,0 +1,4 @@
+# /etc/default/prometheus-node-exporter on G7. Source: g7-infra g7/monitoring (g7-apply).
+# Listens on G7 itself only. The systemd collector adds each unit's state (failed units).
+# After a change: sudo systemctl restart prometheus-node-exporter
+ARGS="--web.listen-address=127.0.0.1:9100 --collector.systemd"

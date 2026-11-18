@@ -25,6 +25,7 @@ change starts as a commit here ("Changing G7", at the end).
 | `/root/.restic-g7` | restic repository password | Vaultwarden, or paper |
 | `/root/.ntfy-g7-token` | ntfy token for alerts | Vaultwarden |
 | `/root/.healthchecks-ping-key` | Healthchecks.io ping key | Healthchecks.io project settings |
+| `/opt/grafana/admin_password` | Grafana's admin password | `/opt` backup, or Vaultwarden |
 | `/root/.restic-mia-rest` | Login to Miami's append-only backup server | `/root` backup, or a new password and its hash on Miami (`mia/README.md`, "Backup target") |
 | `/etc/duckdns.conf` | DuckDNS token (curl config) | `/etc` backup, or duckdns.org |
 | `/etc/wireguard/wg0.conf` (PrivateKey) | VPN server key | `/etc` backup. A new key means reissuing every client config |
@@ -74,8 +75,9 @@ over an existing key.
     repository (`g7/`), with its G7 runbook and go-live gates (`docs/`). Restore the keypair
     as above. Starting any study or live service follows MemeSniper's own release procedure,
     not this document.
-11. **Backup and monitoring.** `g7/backup/`, `g7/healthchecks/`, then enable every timer in
-    `systemd/`. Done when Uptime Kuma is green and Healthchecks.io shows fresh pings.
+11. **Backup and monitoring.** `g7/backup/`, `g7/healthchecks/`, `g7/monitoring/` (Prometheus and
+    Grafana), then enable every timer in `systemd/`. Done when Uptime Kuma is green, Healthchecks.io
+    shows fresh pings and Grafana's G7 dashboard has data.
 12. **Drift check and apply.** `g7/drift/`, then `g7/apply/` (their READMEs). The drift
     check's first run lists everything that still differs from this repository; `g7-apply`
     puts back the files it may change, and the rest are copied by hand. The rebuild is done
