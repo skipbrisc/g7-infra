@@ -60,6 +60,17 @@ It needs 10 GB free in `/var/tmp` and takes a few minutes, most of it Miami's `r
 Run it every three months, after any change to the backup, and before relying on the backup
 for anything risky.
 
+If `restic check` "could not run: another restic process holds a lock", a restic run was cut
+off and left its lock file behind, or one is still running. In a root shell on G7:
+
+    R="restic -r sftp:mia-backup:/srv/backups/g7/restic --password-file /root/.restic-g7"
+    for l in $($R list locks --no-lock); do $R cat lock "$l" --no-lock; done
+    pgrep -a restic
+
+Each lock shows its host, PID and time. `$R unlock` removes only stale locks (a PID that no
+longer runs on this host, or older than 30 minutes) and leaves a running one alone. Use the
+local repository path instead for a lock on G7's own copy. Never `unlock --remove-all`.
+
 ## Restore
 
     sudo -i

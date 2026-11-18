@@ -80,6 +80,8 @@ check_repo() { # name, repository. Sets SNAPTIME.
   fi
   if r -r "$2" check -q >/dev/null 2>"$S/check.err"; then
     pass "$1: repository structure checks out (restic check)"
+  elif grep -q 'already locked' "$S/check.err"; then
+    fail "$1: restic check could not run: another restic process holds a lock ($(grep -o 'locked[^,]*by PID [0-9]* on [^ ]*' "$S/check.err" | head -n 1), $(grep -o 'created at [^(]*([^)]*)' "$S/check.err" | head -n 1)). Not damage; see README, Restore drill"
   else
     fail "$1: restic check reported a problem: $(tail -n 2 "$S/check.err" | tr '\n' ' ')"
   fi
@@ -161,29 +163,34 @@ mountpoint -q /mnt/data || { fail "the backup disk /mnt/data is not mounted"; sa
 
 say ""; say "G7's own copy ($LOCAL)"
 check_repo "G7 disk" "$LOCAL"; LOCALTIME=$SNAPTIME
-restore_sample "G7 disk" "$LOCAL" "$S/local" && check_sample "G7 disk" "$S/local"
-check_key "G7 disk" "$LOCAL"
+LOCALOK=0; restore_sample "G7 disk" "$LOCAL" "$S/local" && LOCALOK=1
 
 say ""; say "Off-site copy ($MIAMI)"
 check_repo "Miami" "$MIAMI"; MIAMITIME=$SNAPTIME
+SAME=0
 if [ -n "$LOCALTIME" ] && [ "$LOCALTIME" = "$MIAMITIME" ]; then
-  pass "Miami: holds G7's newest snapshot ($MIAMITIME)"
+  SAME=1; pass "Miami: holds G7's newest snapshot ($MIAMITIME)"
 else
   fail "Miami: newest snapshot is ${MIAMITIME:-none}, G7's is ${LOCALTIME:-none}: last night's copy did not arrive"
 fi
-if restore_sample "Miami" "$MIAMI" "$S/miami"; then
-  if [ -n "$LOCALTIME" ] && [ "$LOCALTIME" = "$MIAMITIME" ]; then
-    if diff -r --no-dereference "$S/local" "$S/miami" >/dev/null 2>&1; then
-      pass "Miami: its sample is identical to G7's, file for file"
-    else
-      fail "Miami: its sample differs from G7's for the same snapshot"
-    fi
+MIAMIOK=0; restore_sample "Miami" "$MIAMI" "$S/miami" && MIAMIOK=1
+# Compared before anything reads the samples: SQLite leaves -shm/-wal files beside a database it opens.
+if [ "$SAME" = 1 ] && [ "$LOCALOK" = 1 ] && [ "$MIAMIOK" = 1 ]; then
+  if diff -rq --no-dereference "$S/local" "$S/miami" > "$S/diff.txt" 2>&1; then
+    pass "Miami: its sample is identical to G7's, file for file"
   else
-    check_sample "Miami" "$S/miami"
+    fail "Miami: its sample differs from G7's for the same snapshot: $(head -n 3 "$S/diff.txt" | sed "s|$S/||g" | tr '\n' ';')"
   fi
 fi
-check_key "Miami" "$MIAMI"
+
+say ""; say "What the sample holds"
+if [ "$LOCALOK" = 1 ]; then check_sample "G7 disk" "$S/local"; fi
+if [ "$MIAMIOK" = 1 ] && { [ "$SAME" = 0 ] || [ "$LOCALOK" = 0 ]; }; then check_sample "Miami" "$S/miami"; fi
 rm -rf "$S/local" "$S/miami"
+
+say ""; say "MemeSniper wallet key (checked by SHA-256 only)"
+check_key "G7 disk" "$LOCAL"
+check_key "Miami" "$MIAMI"
 
 if [ "$PAPER" = 1 ]; then
   say ""; say "The two secrets on paper"
