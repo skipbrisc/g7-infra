@@ -9,7 +9,8 @@ set -u
 OUT=$(mktemp -d) || exit 1
 L="$OUT/live"
 mkdir -p "$L/etc/ssh/sshd_config.d" "$L/etc/wireguard" "$L/etc/sysctl.d" \
-         "$L/etc/apt/apt.conf.d" "$L/etc/ufw" "$L/state"
+         "$L/etc/apt/apt.conf.d" "$L/etc/ufw" "$L/etc/default" \
+         "$L/etc/systemd/system/restic-rest-server.service.d" "$L/state"
 
 # WireGuard private and preshared keys never leave the server.
 redact_wg() { sed -E 's/^([[:space:]]*(PrivateKey|PresharedKey)[[:space:]]*=).*/\1 <REDACTED>/'; }
@@ -43,6 +44,15 @@ for f in /etc/sysctl.d/*.conf; do [ -e "$f" ] && cp "$f" "$L/etc/sysctl.d/"; don
 cp /etc/hosts "$L/etc/hosts" 2>/dev/null
 cp /etc/hostname "$L/etc/hostname" 2>/dev/null
 
+# --- Backup target: the REST server's settings and drop-in. Of the login file only the user
+# names; the password hashes stay on the server.
+[ -e /etc/default/restic-rest-server ] && cp /etc/default/restic-rest-server "$L/etc/default/"
+for f in /etc/systemd/system/restic-rest-server.service.d/*.conf; do
+  [ -e "$f" ] && cp "$f" "$L/etc/systemd/system/restic-rest-server.service.d/"
+done
+[ -e /etc/restic-rest-server/users.htpasswd ] \
+  && cut -d: -f1 /etc/restic-rest-server/users.htpasswd > "$L/state/rest-server-users.txt"
+
 # --- Scheduled jobs and updates
 for u in root $(getent passwd | awk -F: '$3>=1000 && $3<65000 {print $1}'); do
   crontab -l -u "$u" 2>/dev/null | grep -v '^#' | grep -v '^$' | redact_hc > "$L/state/crontab-$u.txt"
@@ -62,7 +72,7 @@ done
   echo "ntp-synchronized: $(timedatectl show -p NTPSynchronized --value 2>/dev/null)"
   echo
   echo "== services (is-enabled / is-active)"
-  for s in ssh ufw wg-quick@wg0 cron unattended-upgrades; do
+  for s in ssh ufw wg-quick@wg0 restic-rest-server cron unattended-upgrades; do
     echo "$s: $(systemctl is-enabled "$s" 2>/dev/null) / $(systemctl is-active "$s" 2>/dev/null)"
   done
   echo
@@ -74,7 +84,7 @@ done
   echo
   echo "== root filesystem"; df -h /
   echo
-  echo "== backup folders"; ls -ld /srv/backups /srv/backups/* 2>/dev/null
+  echo "== backup folders"; ls -ld /srv/backups /srv/backups/* /srv/backups/*/* 2>/dev/null
 } > "$L/state/system.txt" 2>&1
 getent passwd | awk -F: '$3>=1000 && $3<65000 {print $1 " uid=" $3 " home=" $6 " shell=" $7}' > "$L/state/users.txt"
 for u in $(getent passwd | awk -F: '$3>=1000 && $3<65000 {print $1}'); do id "$u"; done >> "$L/state/users.txt" 2>&1
@@ -83,7 +93,8 @@ apt-mark showmanual > "$L/state/apt-manual.txt" 2>/dev/null
 # --- Refuse to hand over anything that still looks like a private key or a ping address.
 if grep -rEq '^[[:space:]]*(PrivateKey|PresharedKey)[[:space:]]*=[[:space:]]*[A-Za-z0-9+/]{43}=' "$L" \
    || grep -rEq 'hc-ping\.com/[0-9a-f]{8}-' "$L" \
-   || grep -rlq 'PRIVATE KEY' "$L"; then
+   || grep -rlq 'PRIVATE KEY' "$L" \
+   || grep -rEq '\$2[aby]\$[0-9]{2}\$' "$L"; then
   rm -rf "$OUT"
   echo "mia-capture: a secret survived redaction; nothing written" >&2
   exit 1

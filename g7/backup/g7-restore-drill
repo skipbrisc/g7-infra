@@ -19,7 +19,8 @@ PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export RESTIC_PASSWORD_FILE=/root/.restic-g7
 export RESTIC_CACHE_DIR=/var/cache/restic
 LOCAL=/mnt/data/G7-backups/restic
-MIAMI=sftp:mia-backup:/srv/backups/g7/restic
+MIAMI=rest:http://10.78.0.1:8000/g7/restic/   # append-only REST server on Miami
+MIAMI_LOGIN=/root/.restic-mia-rest
 KEY=/var/lib/memesniper-signer/live-keypair.json
 KEY_ENC=/root/memesniper-live-keypair.json.enc
 KEY_SHA=338c18faee6ea23d1b788907c9c2ee51c8a28ed00abe1e54596eef5f4d509520
@@ -39,6 +40,8 @@ case "${1:-}" in
   *) echo "usage: g7-restore-drill [--no-paper]" >&2; exit 2 ;;
 esac
 [ "$(id -u)" = 0 ] || { echo "run as root: sudo g7-restore-drill" >&2; exit 2; }
+[ -r "$MIAMI_LOGIN" ] || { echo "no Miami login file $MIAMI_LOGIN" >&2; exit 1; }
+set -a; . "$MIAMI_LOGIN"; set +a
 if [ "$PAPER" = 1 ] && ! [ -t 0 ]; then PAPER=0; echo "No terminal: the paper secrets are skipped."; fi
 
 mkdir -p -m 0700 "$LOGDIR"

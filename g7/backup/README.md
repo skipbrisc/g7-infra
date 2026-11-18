@@ -17,11 +17,17 @@ state), and the list of installed packages. A Bitcoin Core data folder is
 included if one exists, without the block chain itself.
 
 Off-site: after the local snapshot, the script copies every snapshot Miami does not have to
-a second restic repository, `sftp:mia-backup:/srv/backups/g7/restic` (the Miami server,
-reached over the wg-mia tunnel as the file-transfer-only user `g7backup`; same password and
-retention as the local repository). If the copy fails the local snapshot is still saved and
-the alert says so. Restore from Miami by using that repository path in the commands below.
-Kept: 14 daily, 8 weekly, 6 monthly. Sundays also read back 5% of the data (`restic check`).
+a second restic repository on the Miami server, `rest:http://10.78.0.1:8000/g7/restic/`: an
+append-only restic REST server reached over the wg-mia tunnel (`mia/README.md`, "Backup target").
+G7 can add snapshots there but cannot delete or change anything already stored, so a G7 that has
+been taken over cannot wipe the off-site copy. Its login (`RESTIC_REST_USERNAME` and
+`RESTIC_REST_PASSWORD`) is in `/root/.restic-mia-rest` (root 0600). Same password and contents
+as the local repository. If the copy fails the local snapshot is still saved and the alert says
+so. Restore from Miami by loading the login (`set -a; . /root/.restic-mia-rest; set +a`) and
+using that repository path in the commands below.
+Kept on G7: 14 daily, 8 weekly, 6 monthly. Miami keeps everything until it is pruned by hand
+on Miami (`mia/README.md`, "Pruning"). Sundays also read back 5% of G7's data and check
+Miami's repository structure (`restic check`).
 Alerts: ntfy topic `g7` (subscribe on the phone), low on success, high on failure.
 
 ## Install (once)
@@ -63,7 +69,8 @@ for anything risky.
 If `restic check` "could not run: another restic process holds a lock", a restic run was cut
 off and left its lock file behind, or one is still running. In a root shell on G7:
 
-    R="restic -r sftp:mia-backup:/srv/backups/g7/restic --password-file /root/.restic-g7"
+    set -a; . /root/.restic-mia-rest; set +a
+    R="restic -r rest:http://10.78.0.1:8000/g7/restic/ --password-file /root/.restic-g7"
     for l in $($R list locks --no-lock); do $R cat lock "$l" --no-lock; done
     pgrep -a restic
 

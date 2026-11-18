@@ -9,7 +9,9 @@ facility. Set up 2026-11-12. It does three jobs:
   itself uses the link; nothing else on the home network or on G7's own VPN can reach Miami
   through it.
 - **Off-site backup target.** G7 copies its nightly restic snapshots to
-  `/srv/backups/g7/restic` here. That side is documented in `g7/backup/README.md`.
+  `/srv/backups/g7/restic` here, through an append-only restic REST server: G7 can add
+  snapshots but never delete or change them ("Backup target" below; G7's side is in
+  `g7/backup/README.md`).
 
 This folder holds no secrets. Private keys, device configs and the Healthchecks ping address
 stay on the server.
@@ -24,7 +26,7 @@ stay on the server.
 | Hostname | `mia` (was `server-bpbfbq`) |
 | Admin login | `ssh mia` from the PC: user `buttmud`, port 3333, key `~/.ssh/mia_skip` |
 | SSH | Key-only. Root and password logins are off |
-| Firewall | ufw: deny incoming, allow 3333/tcp and 51820/udp, forward VPN traffic out to the internet only |
+| Firewall | ufw: deny incoming, allow 3333/tcp and 51820/udp, and 8000/tcp on `wg0` from G7 (10.78.0.2) only; forward VPN traffic out to the internet only |
 | Updates | unattended-upgrades |
 
 ### VPN addresses (`wg0`, 10.78.0.0/24, UDP 51820)
@@ -48,6 +50,46 @@ other, G7 or the home network.
   `38.126.208.251:3333` (reachable from the internet), both alerting to ntfy topic `g7`.
 - Healthchecks.io check "Miami heartbeat": root's crontab on Miami pings it every 5 minutes.
   This is the one that still works when G7 is down.
+
+## Backup target
+
+`restic-rest-server` (Debian package, 0.13) serves `/srv/backups` on `10.78.0.1:8000`, the
+tunnel address, with `--append-only --private-repos` and a login file. Append-only means
+restic can create new files there (snapshots, data, indexes) and remove its own lock files, but
+the server refuses to delete or overwrite anything else, whoever asks. Private repos means the
+`g7` login reaches only `/g7/...`. The firewall lets in 10.78.0.2 and nobody else, so the
+other VPN devices cannot reach it either.
+
+| Piece | Where |
+|---|---|
+| Settings (`LISTEN`, `BACKUP_DIR`, `ARGS`) | `/etc/default/restic-rest-server` |
+| Drop-in: start after `wg0`, write only under `/srv/backups`, always restart | `/etc/systemd/system/restic-rest-server.service.d/g7.conf` |
+| Login file (bcrypt hash of G7's password, user `g7`) | `/etc/restic-rest-server/users.htpasswd`, root:restic-rest-server 0640 |
+| Repository | `/srv/backups/g7/restic`, owned by `restic-rest-server` |
+| G7's password | Only on G7, `/root/.restic-mia-rest` |
+
+The restic repository password is not on Miami: Miami holds only encrypted data it cannot read.
+
+Check it: `systemctl status restic-rest-server`, and `journalctl -u restic-rest-server -n 20`.
+From Miami, `curl -s -o /dev/null -w '%{http_code}\n' http://10.78.0.1:8000/g7/restic/config`
+prints 401 (a login is required).
+
+New G7 password: on G7, a new random password in `/root/.restic-mia-rest`, its hash with
+`htpasswd -B -C 10 -i -n g7`, and that one line in place of the old one in the login file here,
+then `systemctl restart restic-rest-server`.
+
+### Pruning
+
+G7 cannot prune Miami, so Miami keeps every snapshot until it is pruned here by hand. The
+repository was about 14 GB in November 2026 on an 864 GB disk; prune it once or twice a year,
+or when `df -h /srv` says it is getting full. During the day, never near the nightly copy at
+about 03:20, in a root shell, typing the restic password from paper:
+
+    sudo -u restic-rest-server env RESTIC_CACHE_DIR=/var/tmp/restic-prune-cache \
+      restic -r /srv/backups/g7/restic forget --keep-daily 14 --keep-weekly 8 --keep-monthly 6 --prune
+    rm -rf /var/tmp/restic-prune-cache
+
+Then run the restore drill on G7 (`sudo g7-restore-drill`).
 
 ## What is in this folder
 
@@ -111,7 +153,11 @@ every VPN device.
    has a different name, change it in the `PostUp`/`PostDown` lines and in the ufw route rule.
 6. **G7 link.** On Miami, the `[Peer]` block for G7 (10.78.0.2) with G7's `wg-mia` public key.
    On G7, `systemctl enable --now wg-quick@wg-mia`, then `ping 10.78.0.1`.
-7. **Backup target.** The `g7backup` user and `/srv/backups/g7`; see `g7/backup/README.md`.
+7. **Backup target.** `apt install -y restic-rest-server apache2-utils restic`; the settings, the
+   drop-in and the login file as in "Backup target" above (copy them from `live/`); the ufw rule
+   from `live/state/ufw-added.txt`; `systemctl enable --now restic-rest-server`. An empty
+   `/srv/backups/g7/restic` owned by `restic-rest-server` is refilled by G7's next copy, or
+   initialize it from G7 first with the same password.
 8. **Monitoring.** `apt install -y cron curl`; root's crontab line is in
    `live/state/crontab-root.txt` with the ping address removed (copy the address from the
    check's page on Healthchecks.io). The Uptime Kuma monitors live on G7 and need no change
@@ -127,4 +173,4 @@ every VPN device.
 | VPN server key `/etc/wireguard/server.key` | Miami only | New key; reissue every device config |
 | Device configs `/etc/wireguard/clients/` | Miami only, and on each device | Remove the peer and add the device again |
 | Healthchecks ping address | Root's crontab on Miami | Copy it from the check's page |
-| Backup user's login key | G7 (`g7/backup/README.md`) | See that file |
+| G7's login to the backup server | G7 `/root/.restic-mia-rest`; its bcrypt hash in `/etc/restic-rest-server/users.htpasswd` here | New password and hash ("Backup target") |

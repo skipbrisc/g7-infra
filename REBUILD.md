@@ -12,7 +12,8 @@ change starts as a commit here ("Changing G7", at the end).
 1. **The latest backup.** restic, nightly, in `/mnt/data/G7-backups/restic` on G7's second
    disk (`g7/backup/README.md` lists what is in it and how to restore). The same snapshots are
    copied each night to a second repository on the Miami server
-   (`sftp:mia-backup:/srv/backups/g7/restic`, reached from G7 over the wg-mia tunnel).
+   (`rest:http://10.78.0.1:8000/g7/restic/`, an append-only REST server reached from G7 over
+   the wg-mia tunnel: G7 can add snapshots there but not delete them).
    `sudo g7-restore-drill` proves both copies restore (`g7/backup/README.md`, "Restore drill").
 2. **The restic repository password.** It is in Vaultwarden, but Vaultwarden's own data is
    inside the backup, so also keep it on paper.
@@ -24,6 +25,7 @@ change starts as a commit here ("Changing G7", at the end).
 | `/root/.restic-g7` | restic repository password | Vaultwarden, or paper |
 | `/root/.ntfy-g7-token` | ntfy token for alerts | Vaultwarden |
 | `/root/.healthchecks-ping-key` | Healthchecks.io ping key | Healthchecks.io project settings |
+| `/root/.restic-mia-rest` | Login to Miami's append-only backup server | `/root` backup, or a new password and its hash on Miami (`mia/README.md`, "Backup target") |
 | `/etc/duckdns.conf` | DuckDNS token (curl config) | `/etc` backup, or duckdns.org |
 | `/etc/wireguard/wg0.conf` (PrivateKey) | VPN server key | `/etc` backup. A new key means reissuing every client config |
 | `/etc/hostapd/hostapd.conf` (wpa_passphrase) | Wi-Fi access point passphrase | `/etc` backup |

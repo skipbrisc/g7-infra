@@ -1,15 +1,17 @@
 #!/bin/sh
 # /usr/local/sbin/g7-backup on G7 (root:root 0700). Source: g7/backup/g7-backup in the g7-infra repo.
 # Nightly encrypted, deduplicated backup of G7's own state into a restic repository on the second
-# disk, then a copy of the snapshots to the off-site repository on the Miami server (over the
-# wg-mia tunnel, as g7backup; root's ~/.ssh/config has the mia-backup host).
+# disk, then a copy of the snapshots to the off-site repository on the Miami server: an append-only
+# restic REST server on Miami's end of the wg-mia tunnel (mia/README.md, "Backup target"). G7 can
+# add snapshots there but never delete or change them; its login is in /root/.restic-mia-rest.
 # Run by g7-backup.timer; run by hand with: sudo /usr/local/sbin/g7-backup
 set -eu
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export RESTIC_REPOSITORY=/mnt/data/G7-backups/restic
 export RESTIC_PASSWORD_FILE=/root/.restic-g7
 export RESTIC_CACHE_DIR=/var/cache/restic   # systemd runs this without $HOME
-OFFSITE=sftp:mia-backup:/srv/backups/g7/restic
+OFFSITE=rest:http://10.78.0.1:8000/g7/restic/
+MIAMI_LOGIN=/root/.restic-mia-rest   # RESTIC_REST_USERNAME= and RESTIC_REST_PASSWORD= lines, root 0600
 STAGE=/var/backups/g7-stage
 NTFY_TOKEN_FILE=/root/.ntfy-g7-token
 
@@ -89,12 +91,13 @@ SNAP=$(restic snapshots latest --compact 2>/dev/null | awk 'NR==3{print $1}')
 [ -n "$SNAP" ] || SNAP=latest
 FREE=$(df -h --output=avail /mnt/data | tail -1 | tr -d ' ')
 
-# Off-site: copy every snapshot Miami does not have yet, then apply the same retention there.
+# Off-site: copy every snapshot Miami does not have yet. Miami is append-only, so nothing is
+# forgotten or pruned there from G7; it is pruned by hand on Miami (mia/README.md, "Pruning").
 # The local snapshot is already safe at this point; a failure here is reported as its own alert.
+[ -r "$MIAMI_LOGIN" ] || fail "local snapshot $SNAP saved, but there is no Miami login ($MIAMI_LOGIN)"
+set -a; . "$MIAMI_LOGIN"; set +a
 restic -r "$OFFSITE" copy --from-repo "$RESTIC_REPOSITORY" --from-password-file "$RESTIC_PASSWORD_FILE" --quiet \
   || fail "local snapshot $SNAP saved, but the copy to Miami failed"
-restic -r "$OFFSITE" forget --keep-daily 14 --keep-weekly 8 --keep-monthly 6 --prune --quiet \
-  || fail "local snapshot $SNAP saved and copied, but forget/prune on Miami failed"
 if [ "$(date +%u)" = 7 ]; then
   restic -r "$OFFSITE" check --quiet || fail "restic check found a problem in the Miami repository"
 fi
