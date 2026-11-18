@@ -26,6 +26,9 @@
 ### tuple ### route:allow any any 0.0.0.0/0 any 0.0.0.0/0 in_wg0!out_eno1
 -A ufw-user-forward -i wg0 -o eno1 -j ACCEPT
 
+### tuple ### allow tcp 8000 10.78.0.1 any 10.78.0.2 in_wg0 comment=72657374696320524553542c204737206f6e6c79
+-A ufw-user-input -i wg0 -p tcp -d 10.78.0.1 --dport 8000 -s 10.78.0.2 -j ACCEPT
+
 ### END RULES ###
 
 ### LOGGING ###

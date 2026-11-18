@@ -1,4 +1,5 @@
 adduser
+apache2-utils
 apt
 apt-listchanges
 apt-utils
@@ -170,6 +171,8 @@ procps
 qrencode
 readline-common
 reportbug
+restic
+restic-rest-server
 sed
 sensible-utils
 shim-signed

@@ -1,4 +1,4 @@
-captured: 2026-11-13T01:38:27Z
+captured: 2026-11-18T19:38:17Z
 hostname: mia
 PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
 VERSION_ID="13"
@@ -10,6 +10,7 @@ ntp-synchronized: yes
 ssh: enabled / active
 ufw: enabled / inactive
 wg-quick@wg0: enabled / active
+restic-rest-server: enabled / active
 cron: enabled / active
 unattended-upgrades: enabled / active
 
@@ -32,8 +33,9 @@ nvme0n1     894.3G disk
 
 == root filesystem
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/nvme0n1p3  864G   15G  806G   2% /
+/dev/nvme0n1p3  864G   19G  802G   3% /
 
 == backup folders
-drwxr-xr-x 3 root     root     4096 Nov 12 17:51 /srv/backups
-drwx------ 3 g7backup g7backup 4096 Nov 12 18:13 /srv/backups/g7
+drwxr-xr-x 3 root               root               4096 Nov 12 17:51 /srv/backups
+drwx------ 3 restic-rest-server restic-rest-server 4096 Nov 18 14:23 /srv/backups/g7
+drwxrwxr-x 7 restic-rest-server restic-rest-server 4096 Nov 12 18:13 /srv/backups/g7/restic

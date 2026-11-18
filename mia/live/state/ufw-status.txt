@@ -7,6 +7,7 @@ To                         Action      From
 --                         ------      ----
 3333/tcp                   ALLOW IN    Anywhere                  
 51820/udp                  ALLOW IN    Anywhere                  
+10.78.0.1 8000/tcp on wg0  ALLOW IN    10.78.0.2                  # restic REST, G7 only
 3333/tcp (v6)              ALLOW IN    Anywhere (v6)             
 51820/udp (v6)             ALLOW IN    Anywhere (v6)             
 

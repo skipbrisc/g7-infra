@@ -1,0 +1,5 @@
+# Restic REST server for G7's off-site backup (g7-infra mia/README.md, "Backup target").
+# Append-only: G7 can add snapshots but never delete or change what is stored.
+LISTEN = 10.78.0.1:8000
+BACKUP_DIR = /srv/backups
+ARGS = "--append-only --private-repos --htpasswd-file /etc/restic-rest-server/users.htpasswd"

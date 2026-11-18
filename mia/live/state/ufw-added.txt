@@ -2,3 +2,4 @@ Added user rules (see 'ufw status' for running firewall):
 ufw allow 3333/tcp
 ufw allow 51820/udp
 ufw route allow in on wg0 out on eno1
+ufw allow in on wg0 from 10.78.0.2 to 10.78.0.1 port 8000 proto tcp comment 'restic REST, G7 only'
