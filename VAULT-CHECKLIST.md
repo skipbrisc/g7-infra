@@ -16,7 +16,7 @@ No secret values are in this file — only where to get them.
 | 3 | ☐ | G7 – Jenkins admin | G7 Server | Login | `buttmud` | `http://192.168.0.6:8080` | Password | You know it |
 | 4 | ☐ | G7 – Jenkins deploy-bot | G7 Server | Login | `deploy-bot` | `http://192.168.0.6:8080` | Password + custom field **API token** (hidden) | Password: set when created. Token: PowerShell `[Environment]::GetEnvironmentVariable("G7_JENKINS_TOKEN","User")` |
 | 5 | ☐ | G7 – Jenkins CLI auth | G7 Server | Secure note | — | — | Note body | PowerShell `Get-Content $env:USERPROFILE\.jenkins-cli\auth.txt` |
-| 6 | ☐ | G7 – Jenkins agent secret | G7 Server | Secure note | — | — | Note body | G7 `sudo cat /etc/jenkins-agent/secret` (optional — can be regenerated) |
+| 6 | ☐ | G7 – Jenkins agent secret | G7 Server | Secure note | — | — | Note body | G7 `sudo cat /var/lib/jenkins-agent/agent.secret` (optional — can be regenerated) |
 | 7 | ☐ | DuckDNS | G7 Server | Login | your DuckDNS sign-in | `https://www.duckdns.org` | Custom field **Token** (hidden); note domains `buttmud`, `buttvault` | G7 `sudo cat /srv/vaultwarden/caddy.env` |
 | 8 | ☐ | Home router | G7 Server | Login | router admin user | `http://192.168.0.1` | Password | You know it; note "UDP 51820 → 192.168.0.6" |
 | 9 | ☐ | WireGuard – Server (wg0) | WireGuard | Secure note | — | `buttmud.duckdns.org:51820` | Note body: private key + public key `tanf/9aIsqo1b1Xm0dydGczTn1yblvG4tDekcPr1+zU=` | G7 `sudo grep PrivateKey /etc/wireguard/wg0.conf` |
