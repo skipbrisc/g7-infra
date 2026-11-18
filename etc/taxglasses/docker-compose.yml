@@ -9,7 +9,7 @@ services:
   proxy:
     image: caddy:2-alpine
     restart: unless-stopped
-    ports: ["10.77.0.1:8090:8090"]
+    ports: ["10.77.0.1:8090:8090", "192.168.0.6:8090:8090"]
     volumes:
       - ./caddy:/etc/caddy:ro
       - caddy_data:/data

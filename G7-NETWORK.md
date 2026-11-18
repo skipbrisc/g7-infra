@@ -243,8 +243,9 @@ POSTROUTING
   -s 172.17.0.0/16 ! -o docker0        -j MASQUERADE   Docker default bridge
   -s 172.18.0.0/16 ! -o br-0218e6ba6111 -j MASQUERADE  taxglasses_default
 
-DOCKER (port publishing, VPN address only)
+DOCKER (port publishing)
   10.77.0.1:8090 → 172.18.0.3:8090   taxglasses-proxy-1 (Caddy)
+  192.168.0.6:8090 → 172.18.0.3:8090 taxglasses-proxy-1 (Caddy, LAN)
   10.77.0.1:8091 → 172.18.0.2:8090   taxglasses-blue-1
   10.77.0.1:8092 → 172.18.0.4:8090   taxglasses-green-1
 ```
@@ -271,12 +272,15 @@ Docker also adds `raw` PREROUTING drops so the container IPs can't be hit direct
 
 | Container | Image | Published on | Role |
 |---|---|---|---|
-| `taxglasses-proxy-1` | `caddy:2-alpine` | 10.77.0.1:8090 → 8090 | Front door; switches blue/green |
+| `taxglasses-proxy-1` | `caddy:2-alpine` | 10.77.0.1:8090, 192.168.0.6:8090 → 8090 | Front door; switches blue/green |
 | `taxglasses-blue-1` | `taxglasses:blue` | 10.77.0.1:8091 → 8090 | Blue slot |
 | `taxglasses-green-1` | `taxglasses:green` | 10.77.0.1:8092 → 8090 | Green slot |
 | `vibrant_mahavira` | `hello-world` | — | Leftover test container, exited — safe to `docker rm` |
 
-All TaxGlasses ports are bound to **10.77.0.1 only**, so TaxGlasses is reachable only over WireGuard.
+The TaxGlasses proxy is published on **10.77.0.1 and 192.168.0.6**: over WireGuard and on the
+home LAN and AP Wi-Fi. The blue and green slots stay on **10.77.0.1 only**. Will and Frank stay
+blocked (their DOCKER-USER chains drop the 172.18.x container address after Docker's redirect),
+and tg1/tg2 still reach 10.77.0.1:8090 and nothing else.
 
 ---
 
@@ -289,7 +293,7 @@ All TaxGlasses ports are bound to **10.77.0.1 only**, so TaxGlasses is reachable
 | TCP 1337 | — | SSH via PiKVM | LAN |
 | TCP 8080 | all | Jenkins | LAN, AP Wi-Fi, full VPN peers |
 | TCP 8765 | 10.77.0.1 | MemeSniper monitor dashboard (python) | Full VPN peers |
-| TCP 8090 | 10.77.0.1 | TaxGlasses (Caddy proxy) | Full VPN peers + tg1/tg2 |
+| TCP 8090 | 10.77.0.1, 192.168.0.6 | TaxGlasses (Caddy proxy) | LAN, AP Wi-Fi, full VPN peers; tg1/tg2 on 10.77.0.1 only |
 | TCP 8091 / 8092 | 10.77.0.1 | TaxGlasses blue / green direct | Full VPN peers |
 | 53 TCP/UDP | 127.0.0.1, 192.168.4.1 | dnsmasq DNS | G7 itself, AP Wi-Fi |
 | UDP 67 | wlp0s20f3 | dnsmasq DHCP | AP Wi-Fi |
