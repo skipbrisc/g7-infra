@@ -227,7 +227,7 @@ Commit both to g7-infra.
 | DHCP range | 192.168.4.10 – 192.168.4.200, 24h leases |
 | Gateway / DNS handed out | 192.168.4.1 |
 | Upstream DNS | 192.168.0.1 |
-| Internet for its clients | **Not loaded**: no NAT rule for 192.168.4.0/24 (section 8, item 1) |
+| Internet for its clients | **None, on purpose** (decided 2026-11-19): no NAT rule for 192.168.4.0/24. The network is kept for a later Wi-Fi project (section 8, item 1) |
 
 `/etc/dnsmasq.d/ap.conf`:
 ```
@@ -402,12 +402,11 @@ The `git` account has no usable password and accepts keys only (`/srv/git/.ssh/a
 
 ## 8. Things worth knowing / fixing
 
-1. **AP Wi-Fi clients probably have no internet.** There is no MASQUERADE rule for 192.168.4.0/24
-   out `enp59s0`. `ap-firewall.sh` would add it, and `persist-g7.sh --ap-nat` would have made it
-   permanent, but neither is run at boot, so the rule has been missing since at least 2026-11-05.
-   Phones on CrackCookingKitchen can reach G7 but, unless the router has a static route for
-   192.168.4.0/24 → 192.168.0.6, not the internet. Fine if that Wi-Fi is only for reaching G7;
-   otherwise it needs a boot-time unit like `taxglasses-fw.service`.
+1. **AP Wi-Fi clients have no internet, on purpose** (decided 2026-11-19). There is no MASQUERADE
+   rule for 192.168.4.0/24 out `enp59s0`, and nothing runs `ap-firewall.sh` or
+   `persist-g7.sh --ap-nat`. Devices on CrackCookingKitchen reach G7 and nothing beyond it. The
+   network is kept for a later Wi-Fi project; giving it internet then needs a boot-time unit like
+   `taxglasses-fw.service` that runs `ap-firewall.sh`.
 2. **AP Wi-Fi clients can reach SSH, Jenkins and every 192.168.0.6 service.** Nothing restricts
    192.168.4.0/24. Fine if only you use that Wi-Fi; otherwise add INPUT drops for it.
 3. **Root can log in by key.** `permitrootlogin without-password`. If nothing logs in as root

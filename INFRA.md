@@ -29,7 +29,7 @@ for Vaultwarden; G7's `duckdns.timer` keeps them current).
 | Network | Range | Who is on it | Its traffic leaves through |
 |---|---|---|---|
 | Home LAN | 192.168.0.0/24 | router .1, G7 .6, PiKVM .100, your other devices | your home connection |
-| G7 Wi-Fi "CrackCookingKitchen" | 192.168.4.0/24 | anything on G7's own access point (G7 is .1, hands out .10–.200) | nowhere yet: G7 has no NAT rule loaded for it, so it reaches G7 but probably not the internet (`G7-NETWORK.md`, section 8) |
+| G7 Wi-Fi "CrackCookingKitchen" | 192.168.4.0/24 | anything on G7's own access point (G7 is .1, hands out .10–.200) | nowhere: no internet, on purpose; it reaches G7 only and is kept for a later Wi-Fi project (`G7-NETWORK.md`, section 8) |
 | G7 VPN (`wg0` on G7) | 10.77.0.0/24 | phone .2, laptop .3, TaxGlasses logins tg1 .20 and tg2 .21, Will .31, Frank .32 | G7, then your home connection |
 | Miami VPN (`wg0` on Miami) | 10.78.0.0/24 | phone .10, PC .11, Will .31, Frank .32; G7 .2 as a private link only | Miami (38.126.208.251) |
 | Docker on G7 | 172.16.0.0/12 | containers | G7 |
@@ -127,6 +127,7 @@ lives and how to get it back.
 
 - **An isolated 192.168.1.x network at home** whose traffic all enters and leaves through Miami,
   routed by G7 with a USB Ethernet adapter and its own switch (talking stage, 2026-11-14).
+- **A Wi-Fi project on CrackCookingKitchen**, G7's access point, which has no internet until then.
 - **A new home router** with more control (the GL.iNet Flint 2 came out on top); G7 stays behind it
   rather than becoming the edge router.
 - **Bitcoin Core on G7** (decided 2026-11-11; the backup already includes its data folder if one
