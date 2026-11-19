@@ -1,0 +1,10 @@
+# /etc/g7-agent/repos on G7 (root:root 0644). Source: agent/repos in g7-infra.
+# Repositories open to G7's agent: one bare repository name per line (/srv/git/repos/<name>.git).
+# Each needs the agent's pre-receive hook (install.sh adds it). MemeSniper's repositories and
+# g7-infra are deliberately not here: MemeSniper is Codex's, and g7-infra changes G7 itself.
+TaxGlasses
+Aeraphim
+guatemalahope.org
+Aeraphim-Chatbot
+househack
+cryptoagent

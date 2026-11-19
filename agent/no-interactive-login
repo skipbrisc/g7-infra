@@ -1,0 +1,6 @@
+#!/bin/sh
+# /srv/git/git-shell-commands/no-interactive-login on G7 (root:root 0755). Source: agent/ in
+# g7-infra. git-shell-commands exists for the agent's key (g7-agent-git); this keeps interactive
+# logins as the git user switched off, as they were before that folder existed.
+echo "Interactive git-shell logins are not enabled on G7."
+exit 128

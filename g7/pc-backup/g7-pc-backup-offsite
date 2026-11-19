@@ -1,0 +1,69 @@
+#!/bin/sh
+# /usr/local/sbin/g7-pc-backup-offsite on G7 (root:root 0700). Source: g7/pc-backup/ in g7-infra.
+# Daily care of the PC's backup on G7 (g7/pc-backup/README.md):
+#   1. alert if the PC's newest snapshot is more than 3 days old (the PC stopped backing up);
+#   2. forget and prune old PC snapshots on G7 (the PC itself cannot: the REST server is append-only);
+#   3. copy new snapshots to the Miami server, append-only like G7's own backup;
+#   4. Sundays: read back 2% of the data on G7 and check Miami's copy.
+# Run by g7-pc-backup-offsite.timer; by hand: sudo /usr/local/sbin/g7-pc-backup-offsite
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export RESTIC_REPOSITORY=/mnt/data/PC-backups/pc/restic
+export RESTIC_PASSWORD_FILE=/root/.restic-pc
+export RESTIC_CACHE_DIR=/var/cache/restic-pc
+OFFSITE=rest:http://10.78.0.1:8000/g7/pc/
+MIAMI_LOGIN=/root/.restic-mia-rest
+NTFY_TOKEN_FILE=/root/.ntfy-g7-token
+MAX_AGE_DAYS=3
+
+notify() { # title, message, priority
+  [ -r "$NTFY_TOKEN_FILE" ] || return 0
+  curl -fsS -m 10 -o /dev/null -H "Authorization: Bearer $(tr -d '[:space:]' < "$NTFY_TOKEN_FILE")" \
+    -H "Title: $1" -H "Priority: $3" -d "$2" http://127.0.0.1:2586/g7 || true
+}
+fail() { notify "PC backup: problem on G7" "$1" high; echo "g7-pc-backup-offsite: $1" >&2; exit 1; }
+
+mountpoint -q /mnt/data || fail "the backup disk (/mnt/data) is not mounted"
+[ -f "$RESTIC_REPOSITORY/config" ] || fail "no PC repository at $RESTIC_REPOSITORY"
+[ -r "$RESTIC_PASSWORD_FILE" ] || fail "no password file $RESTIC_PASSWORD_FILE"
+
+# 1. How old is the PC's newest snapshot?
+NEWEST_AGE=$(restic snapshots --json --no-lock 2>/dev/null | python3 -c '
+import datetime, json, re, sys
+snaps = json.load(sys.stdin) or []
+times = [datetime.datetime.fromisoformat(re.sub(r"\.\d+", "", s["time"]).replace("Z", "+00:00")) for s in snaps]
+if times:
+    newest = max(times)
+    age = datetime.datetime.now(datetime.timezone.utc) - newest
+    print(newest.strftime("%Y-%m-%d %H:%M"), age.days)
+') || NEWEST_AGE=""
+[ -n "$NEWEST_AGE" ] || fail "the PC has not made a backup yet (no snapshots on G7)"
+NEWEST=${NEWEST_AGE% *}
+AGE_DAYS=${NEWEST_AGE##* }
+
+# 2. Keep 14 daily, 8 weekly, 12 monthly. Waits if the PC is backing up right now.
+restic forget --retry-lock 2h --keep-daily 14 --keep-weekly 8 --keep-monthly 12 --prune --quiet \
+  || fail "restic forget/prune of the PC repository failed"
+if [ "$(date +%u)" = 7 ]; then
+  restic check --retry-lock 1h --read-data-subset=2% --quiet || fail "restic check found a problem in the PC repository"
+fi
+
+# 3. Off-site: every snapshot Miami does not have yet (Miami is append-only; prune it by hand there).
+[ -r "$MIAMI_LOGIN" ] || fail "no Miami login ($MIAMI_LOGIN)"
+set -a
+# shellcheck source=/dev/null
+. "$MIAMI_LOGIN"
+set +a
+restic -r "$OFFSITE" copy --retry-lock 2h --from-repo "$RESTIC_REPOSITORY" --from-password-file "$RESTIC_PASSWORD_FILE" --quiet \
+  || fail "the copy of the PC backup to Miami failed"
+if [ "$(date +%u)" = 7 ]; then
+  restic -r "$OFFSITE" check --quiet || fail "restic check found a problem in Miami's copy of the PC backup"
+fi
+
+FREE=$(df -h --output=avail /mnt/data | tail -1 | tr -d ' ')
+if [ "$AGE_DAYS" -gt "$MAX_AGE_DAYS" ]; then
+  # Fails the run on purpose: no Healthchecks ping, so the outside alarm fires too.
+  fail "the PC's newest backup is $AGE_DAYS days old ($NEWEST). Is the task \"PC backup to G7\" running?"
+fi
+notify "PC backup ok" "Newest PC snapshot $NEWEST, pruned and copied to Miami. Backup disk free: $FREE." low
+echo "g7-pc-backup-offsite: newest PC snapshot $NEWEST; pruned; copied to Miami; $FREE free on /mnt/data"

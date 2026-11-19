@@ -17,7 +17,7 @@ on G7 that no longer matches. See `REBUILD.md`, "Changing G7".
 | **Miami** (`mia`) | Server Room, Miami. Debian 13, 864 GB NVMe, public 38.126.208.251 | VPN exit for your devices, private link to G7, off-site backup (append-only) | `ssh mia` (port 3333, key `~/.ssh/mia_skip`); provider console as fallback (`mia/README.md`) |
 | **PiKVM** | Home LAN, 192.168.0.100 (DHCP reservation on the router) | Out-of-band keyboard, screen and power for G7 | `https://192.168.0.100`; SSH to G7 through it on port 1337 |
 | **Home router** | 192.168.0.1 | Your internet connection, LAN DHCP and DNS | Forwards UDP 51820 to G7 (the VPN) and the PiKVM's web page; see "Facing the internet" |
-| **PC** | Home (Windows) | Where the repositories are edited (`D:\`), Claude Code and Codex run, and the daily Vaultwarden backup copy lands (`D:\VaultBackups`) | |
+| **PC** | Home (Windows) | Where the repositories are edited (`D:\`), Claude Code and Codex run, and the daily Vaultwarden backup copy lands (`D:\VaultBackups`). Hands long Claude Code jobs to G7 (`ssh g7-agent`) and backs itself up to G7 daily | |
 
 Outside services: **GitHub** (`skipbrisc/*`, a mirror only, never pushed to by hand),
 **Vercel** (hosts aeraphimcpa.com and guatemalahope.org), **Healthchecks.io** (outside alarm for
@@ -56,6 +56,8 @@ every address below works the same from anywhere.
 | Grafana | `http://192.168.0.6:3000` | LAN and your VPN devices (login) | `g7/monitoring/README.md` |
 | Prometheus, exporters, Alertmanager | `127.0.0.1` on G7 only | G7 itself | `g7/monitoring/README.md` |
 | Off-site backup (restic REST, append-only) | `10.78.0.1:8000` on Miami | G7 only | `mia/README.md`, "Backup target" |
+| PC backup (restic REST, append-only) | `http://192.168.0.6:8000` on G7 | the PC (login `pc`) | `g7/pc-backup/README.md` |
+| G7 agent: Claude Code jobs for the PC | tmux on G7 (`g7-agent-tmux.service`), as user `agent`; `ssh g7-agent <command>` | the PC's `g7_agent` key, forced to `g7-agent` | `agent/README.md` |
 | Websites | aeraphimcpa.com, guatemalahope.org | everyone | Vercel; deployed by Jenkins on G7 (`sites/SITES-SETUP.md`) |
 
 ## The projects
@@ -67,6 +69,7 @@ every address below works the same from anywhere.
 | aeraphimcpa.com | `D:\Aeraphim` → `Aeraphim.git` | Vercel | push → Aeraphim-Deploy (test, upload, smoke test, promote, health check, roll back on failure) | Claude Code |
 | guatemalahope.org | `guatemalahope.org.git` | Vercel | push → GuatemalaHope-Deploy (same) | Claude Code |
 | G7 and Miami themselves | `D:\g7-infra` → `g7-infra.git` | | commit → `g7-apply`, or by hand for `no` files; `g7-drift` every night | you |
+| Aeraphim-Chatbot, househack, cryptoagent | `D:\<name>` → `<name>.git` (from 2026-11-18, `pc/repos-to-g7.ps1`) | | none yet; GitHub mirror only | Claude Code |
 
 TaxGlasses' Jenkins pipelines live in `D:\TaxGlasses\ops\jenkins\` and are installed with
 `scripts/jenkins-jobs.ps1 -Action Push` (only you run it). The websites' pipelines are the
@@ -81,6 +84,7 @@ reads it.
 | G7's state (Git, Jenkins, `/etc`, `/root`, Docker volumes, Vaultwarden, MemeSniper folders incl. the wallet key, media masters, ...) | nightly 03:15 | restic on `/mnt/data`, then copied to Miami | `g7/backup/README.md` |
 | Off-site copy | right after | Miami, append-only: G7 can add snapshots but never delete or change them | `mia/README.md`, "Backup target" |
 | Vaultwarden | nightly 02:41 | `/srv/vaultwarden/backups`, pulled to `D:\VaultBackups` daily | `vaultwarden/VAULTWARDEN.md` |
+| The PC (`D:\` without Steam, and the user folders that matter) | daily 12:30 from the PC; nightly 01:40 G7 prunes and copies | restic on `/mnt/data/PC-backups`, then Miami (`/g7/pc/`), both append-only for the PC | `g7/pc-backup/README.md` |
 | Proof it restores | every three months, and after any backup change | `sudo g7-restore-drill` | `g7/backup/README.md`, "Restore drill" |
 
 Kept on G7: 14 daily, 8 weekly, 6 monthly. Miami keeps everything until pruned by hand there.
@@ -96,14 +100,14 @@ Your phone's ntfy app (server `http://192.168.0.6:2586`) has four topics: `g7` (
 | Layer | Answers | Where |
 |---|---|---|
 | Uptime Kuma | Is each service answering right now? | `http://192.168.0.6:3001` → ntfy |
-| Healthchecks.io | Did each scheduled job run, and is each server alive at all? (works when G7 is down) | `g7-heartbeat` and "Miami heartbeat" every 5 min, `g7-backup`, `g7-drift`, `taxglasses-mirror`, `taxglasses-nightly`; `memesniper-integrity` (Codex's, paused) |
+| Healthchecks.io | Did each scheduled job run, and is each server alive at all? (works when G7 is down) | `g7-heartbeat` and "Miami heartbeat" every 5 min, `g7-backup`, `g7-drift`, `taxglasses-mirror`, `taxglasses-nightly`, `pc-backup-offsite` (also fails when the PC's newest backup is over 3 days old); `memesniper-integrity` (Codex's, paused) |
 | Prometheus + Grafana | What was happening, per service, over time | `http://192.168.0.6:3000` |
 | Alertmanager | Disk nearly full, memory short, heavy swapping, a failed service, monitoring blind | → ntfy `g7` |
 | Jenkins | Build, deploy and nightly-check results | → ntfy `taxglasses`, `sites` |
 | `g7-drift` | Does G7 still match this repository? | 05:10 → ntfy `g7` |
 | `g7-image-scan` | Do running containers have fixable high or critical vulnerabilities? | Mondays 04:30 → ntfy `g7` |
 
-**A G7 night:** 02:41 Vaultwarden backup, 03:15 backup and copy to Miami, 04:40 TaxGlasses
+**A G7 night:** 01:40 PC backup care (prune, copy to Miami), 02:41 Vaultwarden backup, 03:15 backup and copy to Miami, 04:40 TaxGlasses
 nightly check, 05:10 drift check (Mondays also 04:30 image scan).
 
 ## Facing the internet
@@ -128,6 +132,7 @@ lives and how to get it back.
 - **Bitcoin Core on G7** (decided 2026-11-11; the backup already includes its data folder if one
   exists).
 - **Automatic `g7-apply`**: decide on 2026-12-19, after 30 clean nights of drift checks.
-- **Claude Code and Codex on G7 or Miami** directly (being weighed; G7's memory is tight).
+- **Codex on G7.** Claude Code there is the G7 agent (`agent/README.md`, written 2026-11-18): jobs
+  handed over from the PC, capped at 2.5 GB together. Codex is not set up there yet.
 - **More off-site sites** (Dallas as the main backup host, NYC and Denver as VPN exits) were the
   first idea; Miami took the backup and VPN roles instead.

@@ -1,0 +1,12 @@
+[Unit]
+Description=PC backup on G7: prune, check, copy to Miami (g7-infra g7/pc-backup)
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=/mnt/data
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/g7-pc-backup-offsite
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=20h

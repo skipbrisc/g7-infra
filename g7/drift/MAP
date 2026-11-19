@@ -127,6 +127,36 @@ job  TaxGlasses-Rollback  TaxGlasses:ops/jenkins/TaxGlasses-Rollback.Jenkinsfile
 job-scm  Aeraphim-Deploy  Jenkinsfile
 job-scm  GuatemalaHope-Deploy  Jenkinsfile
 
+# --- G7 agent (agent/): Claude Code jobs handed over from the PC. /srv/agent is the agent's own
+# home and is not compared. The service is "no": it is long-running and holds the jobs.
+file  g7-infra:agent/g7-agent  /usr/local/bin/g7-agent  root:root  0755  yes
+file  g7-infra:agent/pretty.py  /usr/local/lib/g7-agent/pretty.py  root:root  0644  yes
+file  g7-infra:agent/system-prompt.md  /usr/local/lib/g7-agent/system-prompt.md  root:root  0644  yes
+file  g7-infra:agent/tmux.conf  /usr/local/lib/g7-agent/tmux.conf  root:root  0644  yes
+file  g7-infra:agent/resolv.conf  /usr/local/lib/g7-agent/resolv.conf  root:root  0644  yes
+file  g7-infra:agent/pre-receive  /usr/local/lib/g7-agent/pre-receive  root:root  0755  yes
+file  g7-infra:agent/g7-agent.slice  /etc/systemd/system/g7-agent.slice  root:root  0644  yes
+file  g7-infra:agent/g7-agent-tmux.service  /etc/systemd/system/g7-agent-tmux.service  root:root  0644  no
+file  g7-infra:agent/config  /etc/g7-agent/config  root:root  0644  no
+file  g7-infra:agent/repos  /etc/g7-agent/repos  root:root  0644  no
+file  g7-infra:agent/g7-agent-git  /srv/git/git-shell-commands/g7-agent-git  root:root  0755  no
+file  g7-infra:agent/no-interactive-login  /srv/git/git-shell-commands/no-interactive-login  root:root  0755  no
+file  g7-infra:agent/pre-receive  /srv/git/repos/TaxGlasses.git/hooks/pre-receive  git:git  0755  no
+file  g7-infra:agent/pre-receive  /srv/git/repos/Aeraphim.git/hooks/pre-receive  git:git  0755  no
+file  g7-infra:agent/pre-receive  /srv/git/repos/guatemalahope.org.git/hooks/pre-receive  git:git  0755  no
+# Uncomment once pc/repos-to-g7.ps1 has put these on G7 and agent/install.sh has run again:
+# file  g7-infra:agent/pre-receive  /srv/git/repos/Aeraphim-Chatbot.git/hooks/pre-receive  git:git  0755  no
+# file  g7-infra:agent/pre-receive  /srv/git/repos/househack.git/hooks/pre-receive  git:git  0755  no
+# file  g7-infra:agent/pre-receive  /srv/git/repos/cryptoagent.git/hooks/pre-receive  git:git  0755  no
+
+# --- The PC's backup (g7/pc-backup/): restic REST server for the PC, nightly prune and copy to Miami
+file  g7-infra:g7/pc-backup/g7-pc-backup-offsite  /usr/local/sbin/g7-pc-backup-offsite  root:root  0700  yes
+file  g7-infra:g7/pc-backup/g7-pc-backup-offsite.service  /etc/systemd/system/g7-pc-backup-offsite.service  root:root  0644  yes
+file  g7-infra:g7/pc-backup/g7-pc-backup-offsite.timer  /etc/systemd/system/g7-pc-backup-offsite.timer  root:root  0644  yes
+file  g7-infra:g7/pc-backup/healthchecks.conf  /etc/systemd/system/g7-pc-backup-offsite.service.d/healthchecks.conf  root:root  0644  yes
+file  g7-infra:g7/pc-backup/restic-rest-server-g7.conf  /etc/systemd/system/restic-rest-server.service.d/g7.conf  root:root  0644  no
+file  g7-infra:g7/pc-backup/restic-rest-server.default  /etc/default/restic-rest-server  root:root  0644  no
+
 # --- on G7 and deliberately not in Git (add "ignore <path>" lines here, with a reason)
 
 # --- MemeSniper's: in the memesniper-deploy repository, never checked here.

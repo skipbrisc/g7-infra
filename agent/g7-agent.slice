@@ -1,0 +1,17 @@
+# /etc/systemd/system/g7-agent.slice on G7. Source: agent/g7-agent.slice in g7-infra.
+# Every agent job runs in here (through g7-agent-tmux.service), so together they can never take
+# more than this from G7. MemeSniper, Jenkins, TaxGlasses and the rest keep the remaining
+# memory. When the jobs reach MemoryMax the kernel ends the biggest process inside this slice
+# only. Raise the numbers only after checking G7's memory panel in Grafana (agent/README.md).
+[Unit]
+Description=G7 agent jobs (Claude Code in tmux), memory-capped
+Before=slices.target
+
+[Slice]
+MemoryAccounting=yes
+MemoryHigh=2G
+MemoryMax=2560M
+MemorySwapMax=1G
+CPUWeight=50
+IOWeight=50
+TasksMax=2048

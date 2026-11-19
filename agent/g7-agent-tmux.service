@@ -1,0 +1,55 @@
+# /etc/systemd/system/g7-agent-tmux.service on G7. Source: agent/g7-agent-tmux.service in g7-infra.
+# The tmux server that holds every agent job. A job's processes are children of this server, so
+# they all run as "agent", inside g7-agent.slice (the memory cap) and inside this sandbox:
+#   * they see their own home (/srv/agent), the system and Node 24, and nothing of Git's bare
+#     repositories, Vaultwarden, Jenkins, Docker, MemeSniper, the backups, /root or /home;
+#   * they reach the internet and G7's own 127.0.0.1 (Git over SSH, DNS), but not the LAN,
+#     the VPNs, Docker networks or G7's LAN address;
+#   * they cannot gain privileges (no sudo, no setuid).
+# The PC talks to the server through /run/g7-agent/tmux.sock (g7-agent start, attach, ...).
+# Restarting this service ends every running job: check "g7-agent list" first.
+[Unit]
+Description=tmux server for G7 agent jobs (g7-infra agent/README.md)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=forking
+User=agent
+Group=agent
+Slice=g7-agent.slice
+WorkingDirectory=/srv/agent
+RuntimeDirectory=g7-agent
+RuntimeDirectoryMode=0700
+Environment=HOME=/srv/agent
+Environment=PATH=/srv/agent/.local/bin:/opt/node24/bin:/usr/local/bin:/usr/bin:/bin
+Environment=LANG=C.UTF-8
+Environment=TERM=xterm-256color
+ExecStart=/usr/bin/tmux -S /run/g7-agent/tmux.sock -f /usr/local/lib/g7-agent/tmux.conf new-session -d -s _keepalive -n keepalive "sleep infinity"
+ExecStop=/usr/bin/tmux -S /run/g7-agent/tmux.sock kill-server
+Restart=on-failure
+RestartSec=10
+OOMScoreAdjust=500
+UMask=0027
+
+NoNewPrivileges=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictRealtime=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+TemporaryFileSystem=/srv:ro /opt:ro /var/lib:ro /mnt:ro /media:ro
+BindPaths=/srv/agent
+BindReadOnlyPaths=/opt/node24 /usr/local/lib/g7-agent/resolv.conf:/etc/resolv.conf
+InaccessiblePaths=-/etc/wireguard -/etc/taxglasses -/etc/memesniper-live -/etc/restic-rest-server -/var/backups -/var/log
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+IPAddressAllow=localhost
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
+
+[Install]
+WantedBy=multi-user.target

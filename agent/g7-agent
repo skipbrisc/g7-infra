@@ -1,0 +1,630 @@
+#!/usr/bin/env bash
+# g7-agent: Claude Code jobs on G7, each in its own tmux session, for Claude Code on the PC to
+# hand work to. Installed as /usr/local/bin/g7-agent (root:root 0755).
+# Source: agent/g7-agent in the g7-infra repository. How it fits together: agent/README.md.
+#
+# Runs as the unprivileged user "agent", in one of two places:
+#   * from the PC:   ssh g7-agent <command> ...   (the PC's key is forced to "g7-agent --ssh")
+#   * in a job:      g7-agent _run <job>          (tmux inside g7-agent-tmux.service: the sandbox
+#                                                  and the memory cap of g7-agent.slice)
+# Files written by jobs are never sourced or evaluated here: a job could have been talked into
+# anything, so everything read back from /srv/agent is validated first.
+set -uo pipefail
+umask 027
+
+CONFIG=${G7_AGENT_CONFIG:-/etc/g7-agent/config}
+LIB=${G7_AGENT_LIB:-/usr/local/lib/g7-agent}
+SELF=$(readlink -f "$0")
+
+# Defaults. /etc/g7-agent/config (root-owned) overrides them.
+AGENT_HOME=/srv/agent
+SOCKET=/run/g7-agent/tmux.sock
+MAX_JOBS=2
+PERMISSION_MODE=bypassPermissions
+MODEL=
+EFFORT=
+GIT_URL=ssh://git@127.0.0.1:3333/srv/git/repos
+GIT_REMOTE=g7
+PROTECTED_BRANCHES="master main"
+NTFY_URL=http://127.0.0.1:2586
+NTFY_TOPIC=agent
+REPOS_FILE=/etc/g7-agent/repos
+CLAUDE_BIN=
+# shellcheck source=/dev/null
+[[ -r $CONFIG ]] && . "$CONFIG"
+CLAUDE_BIN=${CLAUDE_BIN:-$AGENT_HOME/.local/bin/claude}
+JOBS=$AGENT_HOME/jobs
+WORK=$AGENT_HOME/work
+REPOS=$AGENT_HOME/repos
+CONF=$AGENT_HOME/.config/g7-agent
+
+die() { printf 'g7-agent: %s\n' "$1" >&2; exit "${2:-1}"; }
+need() { (($1 >= 2)) || die "$2 needs a value"; }
+tmx() { tmux -S "$SOCKET" "$@"; }
+server_up() { tmx has-session -t =_keepalive 2>/dev/null; }
+session_alive() { tmx has-session -t "=job-$1" 2>/dev/null; }
+
+valid_name() { [[ $1 =~ ^[a-z0-9][a-z0-9-]{0,47}$ ]]; }
+valid_branch() {
+  [[ $1 =~ ^[A-Za-z0-9._/-]{1,100}$ && $1 != -* ]] && git check-ref-format --branch "$1" >/dev/null 2>&1
+}
+valid_repo() {
+  [[ $1 =~ ^[A-Za-z0-9._-]{1,64}$ && $1 != .* ]] || return 1
+  grep -qxF -- "$1" "$REPOS_FILE" 2>/dev/null
+}
+protected_branch() { local p; for p in $PROTECTED_BRANCHES; do [[ $1 == "$p" ]] && return 0; done; return 1; }
+
+# One value per small file, replaced atomically.
+set_file() { printf '%s\n' "$2" > "$1.tmp.$$" && mv -f "$1.tmp.$$" "$1"; }
+get_file() { [[ -f $1 ]] || return 0; head -c 300 "$1" | head -n1 | tr -cd 'A-Za-z0-9 ._:+/@-'; }
+# The job's spec: KEY=value lines written by "start". Read one key, never source the file.
+kv() {
+  local line
+  [[ -f $1 ]] || return 0
+  while IFS= read -r line; do
+    if [[ $line == "$2="* ]]; then printf '%s' "${line#*=}"; return 0; fi
+  done < "$1"
+}
+
+state_of() {  # starting|running|done|failed|stopped, or "lost" when tmux no longer has it
+  local s; s=$(get_file "$JOBS/$1/state")
+  if [[ $s == starting || $s == running ]] && ! session_alive "$1"; then s=lost; fi
+  printf '%s' "${s:-unknown}"
+}
+active() { local s; s=$(state_of "$1"); [[ $s == starting || $s == running ]]; }
+
+job_names() {
+  local d n
+  for d in "$JOBS"/*/; do
+    [[ -d $d ]] || continue
+    n=$(basename "$d"); valid_name "$n" && printf '%s\n' "$n"
+  done
+}
+running_count() { local n c=0; while read -r n; do active "$n" && c=$((c + 1)); done < <(job_names); echo "$c"; }
+
+job_dir() {
+  valid_name "${1:-}" || die "give a job name (see: g7-agent list)"
+  [[ -d $JOBS/$1 ]] || die "no job called $1 (see: g7-agent list)"
+  printf '%s' "$JOBS/$1"
+}
+
+elapsed() {  # elapsed <job dir>
+  local s e; s=$(get_file "$1/started"); e=$(get_file "$1/ended")
+  [[ -n $s ]] || { echo -; return; }
+  s=$(date -d "$s" +%s 2>/dev/null) || { echo -; return; }
+  if [[ -n $e ]]; then e=$(date -d "$e" +%s 2>/dev/null) || e=$(date +%s); else e=$(date +%s); fi
+  local t=$((e - s)); printf '%dh%02dm' $((t / 3600)) $((t % 3600 / 60))
+}
+json_field() {  # json_field <file> <key>
+  [[ -f $1 ]] || return 0
+  python3 - "$1" "$2" <<'PY' 2>/dev/null
+import json, sys
+try:
+    v = json.load(open(sys.argv[1])).get(sys.argv[2])
+except Exception:
+    v = None
+if v is not None:
+    print(f"{v:.2f}" if isinstance(v, float) else v)
+PY
+}
+
+read_prompt() {  # read_prompt <dest> : stdin (when it is not a terminal) into <dest>, max 256 KiB
+  : > "$1"
+  [[ -t 0 ]] && return 0
+  head -c 262145 > "$1"
+  (( $(stat -c %s "$1") <= 262144 )) || { rm -f "$1"; die "prompt is over 256 KiB; put the detail in a file in the repository"; }
+}
+
+check_capacity() {
+  local n; n=$(running_count)
+  ((n < MAX_JOBS)) || die "G7 is already running $n of $MAX_JOBS jobs; try again later (g7-agent list)" 3
+}
+
+launch() {  # launch <job> [--resume]
+  server_up || die "the tmux server is not running (sudo systemctl start g7-agent-tmux on G7)"
+  local cmd; cmd="exec $(printf '%q' "$SELF") _run $1${2:+ $2}"
+  tmx new-session -d -s "job-$1" -x 220 -y 50 "$cmd" || die "tmux could not start the job"
+}
+
+# ---------------------------------------------------------------------------------------------
+cmd_help() {
+  cat <<'TXT'
+g7-agent: Claude Code jobs on G7 (each in its own tmux session, memory-capped and sandboxed).
+From the PC every command is "ssh g7-agent <command>"; the prompt comes in on stdin.
+
+  repos                               repositories open to the agent
+  start <repo> <branch> [options]     new job; the prompt is read from stdin
+        --base <branch|sha>           where a new branch starts (default: the release branch)
+        --name <job>                  job name (default: from the branch)
+        --model <alias|id>  --effort <low|medium|high|xhigh|max>  --budget <usd>
+        --interactive                 the normal Claude Code screen instead of a headless run;
+                                      attach with ssh -t to steer it
+  list                                all jobs
+  status <job>                        details, commits and the last lines of output
+  logs <job> [-n N] [--raw|--stderr]  output (readable, raw stream-json, or errors)
+  wait <job> [--timeout SECONDS]      until the job ends (default 540); exit 0 done,
+                                      1 failed or stopped, 2 still running
+  result <job>                        final report, branch and commits
+  resume <job> [--interactive]        follow-up prompt (stdin) in the same session and worktree
+  stop <job>                          interrupt; leftover changes are committed and pushed
+  attach <job> | watch <job>          the job's tmux session (needs ssh -t; watch is read-only);
+                                      detach with Ctrl-b d
+  clean <job> [--force]               remove the worktree (the branch stays on G7)
+  mem                                 memory used by agent jobs, and G7's free memory
+  doctor                              checks Claude Code, its login, tmux and Git access
+  set-token | set-ntfy-token          store a token read from stdin (see agent/README.md)
+
+Exit codes: 0 ok, 1 error, 2 still running (wait), 3 G7 is full (start, resume).
+TXT
+}
+
+cmd_repos() {
+  local r
+  grep -v '^[[:space:]]*\(#\|$\)' "$REPOS_FILE" 2>/dev/null | while read -r r; do
+    valid_repo "$r" && printf '%s\n' "$r"
+  done
+}
+
+cmd_start() {
+  [[ -z ${G7_AGENT_JOB:-} ]] || die "jobs cannot start other jobs"
+  local repo=${1:-} branch=${2:-}
+  (($# >= 2)) && shift 2 || die "usage: g7-agent start <repo> <branch> [options] < prompt.md"
+  local base='' name='' model=$MODEL effort=$EFFORT budget='' interactive=0
+  while (($#)); do
+    case $1 in
+      --base) need $# "$1"; base=$2; shift 2 ;;
+      --name) need $# "$1"; name=$2; shift 2 ;;
+      --model) need $# "$1"; model=$2; shift 2 ;;
+      --effort) need $# "$1"; effort=$2; shift 2 ;;
+      --budget) need $# "$1"; budget=$2; shift 2 ;;
+      --interactive) interactive=1; shift ;;
+      *) die "unknown option $1" ;;
+    esac
+  done
+  valid_repo "$repo" || die "$repo is not open to the agent (g7-agent repos)"
+  valid_branch "$branch" || die "bad branch name: $branch"
+  protected_branch "$branch" && die "$branch is a release branch: work on a branch and merge it from the PC"
+  [[ -z $base ]] || valid_branch "$base" || [[ $base =~ ^[0-9a-f]{7,64}$ ]] || die "bad --base: $base"
+  [[ -z $model ]] || [[ $model =~ ^[A-Za-z0-9._:\[\]-]{1,80}$ ]] || die "bad --model"
+  [[ -z $effort ]] || [[ $effort =~ ^(low|medium|high|xhigh|max)$ ]] || die "bad --effort"
+  [[ -z $budget ]] || [[ $budget =~ ^[0-9]{1,4}(\.[0-9]{1,2})?$ ]] || die "bad --budget (dollars, e.g. 20)"
+  if [[ -z $name ]]; then
+    name=$(printf '%s' "$branch" | tr 'A-Z' 'a-z' | tr -c 'a-z0-9' '-' | sed 's/--*/-/g; s/^-//; s/-$//' | cut -c1-48)
+    name=${name%-}
+  fi
+  valid_name "$name" || die "bad job name: $name (a-z, 0-9 and -, up to 48)"
+  [[ ! -e $JOBS/$name ]] || die "job $name already exists: pick --name, or g7-agent clean $name"
+  local n
+  while read -r n; do
+    if active "$n" && [[ $(kv "$JOBS/$n/spec" REPO) == "$repo" && $(kv "$JOBS/$n/spec" BRANCH) == "$branch" ]]; then
+      die "job $n is already working on $repo $branch"
+    fi
+  done < <(job_names)
+  check_capacity
+
+  local J=$JOBS/$name tmp
+  mkdir -p "$JOBS"; tmp=$(mktemp "$JOBS/.prompt.XXXXXX")
+  read_prompt "$tmp"
+  [[ -s $tmp || $interactive == 1 ]] || { rm -f "$tmp"; die "no prompt on stdin (ssh g7-agent start ... < prompt.md)"; }
+  mkdir "$J" || die "could not create $J"
+  mv "$tmp" "$J/prompt.md"
+  {
+    echo "REPO=$repo"; echo "BRANCH=$branch"; echo "BASE=$base"; echo "MODEL=$model"
+    echo "EFFORT=$effort"; echo "BUDGET=$budget"; echo "INTERACTIVE=$interactive"
+    echo "SESSION_ID=$(cat /proc/sys/kernel/random/uuid)"; echo "CREATED=$(date -Is)"
+  } > "$J/spec"
+  set_file "$J/state" starting
+  launch "$name" || { set_file "$J/state" failed; exit 1; }
+  cat <<TXT
+Started job $name on G7: $repo, branch $branch.
+  ssh g7-agent wait $name --timeout 540     block until it ends (up to 9 minutes per call)
+  ssh g7-agent logs $name                   what it is doing
+  ssh -t g7-agent watch $name               its tmux session, read-only
+TXT
+}
+
+cmd_resume() {
+  [[ -z ${G7_AGENT_JOB:-} ]] || die "jobs cannot start other jobs"
+  local name=${1:-} J; J=$(job_dir "$name") || exit 1; shift
+  local interactive=0
+  while (($#)); do case $1 in --interactive) interactive=1; shift ;; *) die "unknown option $1" ;; esac; done
+  active "$name" && die "job $name is still running"
+  [[ -d $WORK/$name ]] || die "the worktree of $name is gone; start a new job on the branch instead"
+  check_capacity
+  read_prompt "$J/next-prompt.md"
+  [[ -s $J/next-prompt.md || $interactive == 1 ]] || die "no prompt on stdin (ssh g7-agent resume $name < followup.md)"
+  if ((interactive)); then set_file "$J/next-mode" interactive; else set_file "$J/next-mode" print; fi
+  set_file "$J/state" starting
+  launch "$name" --resume
+  echo "Resumed $name. ssh g7-agent wait $name --timeout 540"
+}
+
+cmd_list() {
+  local n J any=0
+  printf '%-30s %-9s %-18s %-34s %-8s %s\n' JOB STATE REPO BRANCH TIME COST
+  while read -r n; do
+    any=1; J=$JOBS/$n
+    printf '%-30s %-9s %-18s %-34s %-8s %s\n' "$n" "$(state_of "$n")" "$(kv "$J/spec" REPO | cut -c1-18)" \
+      "$(kv "$J/spec" BRANCH | cut -c1-34)" "$(elapsed "$J")" "$(c=$(json_field "$J/summary.json" total_cost_usd); [[ -n $c ]] && echo "~\$$c")"
+  done < <(job_names)
+  ((any)) || echo "(no jobs)"
+  echo "running: $(running_count) of $MAX_JOBS"
+}
+
+commits_of() {  # commits_of <job>: what the job added to its branch
+  local WT=$WORK/$1 start; start=$(get_file "$JOBS/$1/startref")
+  [[ -d $WT && -n $start ]] || return 0
+  git -C "$WT" log --oneline --no-decorate "$start..HEAD" 2>/dev/null | head -n 30
+}
+
+cmd_status() {
+  local name=${1:-} J; J=$(job_dir "$name") || exit 1
+  printf 'job      %s\nstate    %s\nrepo     %s\nbranch   %s\nbase     %s\nmode     %s\nstarted  %s\nended    %s\ntime     %s\n' \
+    "$name" "$(state_of "$name")" "$(kv "$J/spec" REPO)" "$(kv "$J/spec" BRANCH)" "$(kv "$J/spec" BASE | sed 's/^$/(release branch)/')" \
+    "$( [[ $(kv "$J/spec" INTERACTIVE) == 1 ]] && echo interactive || echo headless)" \
+    "$(get_file "$J/started")" "$(get_file "$J/ended")" "$(elapsed "$J")"
+  local c; c=$(json_field "$J/summary.json" total_cost_usd); [[ -z $c ]] || echo "cost     ~\$$c (Claude Code's estimate)"
+  [[ -f $J/pushed ]] && echo "pushed   $(get_file "$J/pushed" | cut -c1-12) to $GIT_REMOTE"
+  [[ -f $J/push_failed ]] && echo "PUSH FAILED: see g7-agent logs $name --stderr; the commits are only in G7's worktree"
+  echo; echo "commits:"; commits_of "$name" | sed 's/^/  /'
+  echo; echo "last output:"; tail -n 20 "$J/pretty.log" 2>/dev/null | sed 's/^/  /'
+}
+
+cmd_logs() {
+  local name=${1:-} J; J=$(job_dir "$name") || exit 1; shift
+  local lines=60 file=pretty.log
+  while (($#)); do
+    case $1 in
+      -n) need $# "$1"; [[ $2 =~ ^[0-9]{1,6}$ ]] || die "bad -n"; lines=$2; shift 2 ;;
+      --raw) file=log.jsonl; shift ;;
+      --stderr) file=stderr.log; shift ;;
+      *) die "unknown option $1" ;;
+    esac
+  done
+  [[ -f $J/$file ]] || { echo "(nothing yet)"; return 0; }
+  tail -n "$lines" "$J/$file"
+}
+
+cmd_result() {
+  local name=${1:-} J; J=$(job_dir "$name") || exit 1
+  echo "state: $(state_of "$name")"
+  if [[ -s $J/result.txt ]]; then echo; cat "$J/result.txt"; echo; fi
+  local b; b=$(kv "$J/spec" BRANCH)
+  if [[ -f $J/pushed ]]; then
+    echo "branch $b on G7 at $(get_file "$J/pushed" | cut -c1-12). On the PC: git fetch $GIT_REMOTE $b"
+  elif [[ -f $J/push_failed ]]; then
+    echo "branch $b was NOT pushed (rejected; see g7-agent logs $name --stderr)"
+  fi
+  local list; list=$(commits_of "$name"); [[ -z $list ]] || { echo "commits:"; printf '%s\n' "$list" | sed 's/^/  /'; }
+}
+
+cmd_wait() {
+  local name=${1:-} J; J=$(job_dir "$name") || exit 1; shift
+  local timeout=540
+  while (($#)); do
+    case $1 in
+      --timeout) need $# "$1"; [[ $2 =~ ^[0-9]{1,4}$ ]] || die "bad --timeout"; timeout=$2; shift 2 ;;
+      *) die "unknown option $1" ;;
+    esac
+  done
+  ((timeout <= 3600)) || timeout=3600
+  local t0=$SECONDS
+  while active "$name" && ((SECONDS - t0 < timeout)); do sleep 5; done
+  if active "$name"; then
+    echo "still running after ${timeout}s ($(elapsed "$J")). Last output:"
+    tail -n 12 "$J/pretty.log" 2>/dev/null | sed 's/^/  /'
+    exit 2
+  fi
+  cmd_result "$name"
+  [[ $(state_of "$name") == "done" ]]
+}
+
+cmd_stop() {
+  local name=${1:-} J; J=$(job_dir "$name") || exit 1
+  if ! session_alive "$name"; then
+    active "$name" || true
+    local s; s=$(get_file "$J/state")
+    [[ $s == starting || $s == running ]] && set_file "$J/state" stopped
+    echo "$name is not running ($(state_of "$name"))"; return 0
+  fi
+  # Ctrl-C ends a headless run's turn (it then commits, pushes and reports); the interactive
+  # screen needs a second one to exit. Then TERM to the job's process group, then KILL.
+  local i=0 _round pid
+  for _round in 1 2; do
+    tmx send-keys -t "=job-$name:" C-c 2>/dev/null
+    i=0; while session_alive "$name" && ((i < 60)); do sleep 1; i=$((i + 1)); done
+    session_alive "$name" || break
+  done
+  if session_alive "$name"; then
+    pid=$(get_file "$J/pid")
+    if [[ $pid =~ ^[0-9]+$ ]] && tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | grep -q "g7-agent _run $name"; then
+      kill -TERM -- "-$pid" 2>/dev/null
+      i=0; while session_alive "$name" && ((i < 30)); do sleep 1; i=$((i + 1)); done
+    fi
+  fi
+  if session_alive "$name"; then
+    tmx kill-session -t "=job-$name" 2>/dev/null
+    [[ $pid =~ ^[0-9]+$ ]] && kill -KILL -- "-$pid" 2>/dev/null
+    set_file "$J/state" stopped
+    echo "$name did not stop and was killed; leftover changes may be uncommitted in $WORK/$name"
+  else
+    echo "$name stopped ($(state_of "$name")). g7-agent result $name"
+  fi
+}
+
+cmd_attach() {  # cmd_attach <job> [readonly]
+  local name=${1:-} verb=attach; [[ -n ${2:-} ]] && verb=watch
+  job_dir "$name" >/dev/null || exit 1
+  [[ -t 0 && -t 1 ]] || die "needs a terminal: ssh -t g7-agent $verb $name"
+  session_alive "$name" || die "$name is not running (g7-agent logs $name)"
+  if [[ -n ${2:-} ]]; then exec tmux -S "$SOCKET" attach-session -r -t "=job-$name"; fi
+  exec tmux -S "$SOCKET" attach-session -t "=job-$name"
+}
+
+cmd_clean() {
+  local name=${1:-} J; J=$(job_dir "$name") || exit 1; shift
+  local force=0; [[ ${1:-} == --force ]] && force=1
+  active "$name" && die "$name is still running (g7-agent stop $name)"
+  local repo branch WT=$WORK/$name; repo=$(kv "$J/spec" REPO); branch=$(kv "$J/spec" BRANCH)
+  valid_repo "$repo" && valid_branch "$branch" || die "the spec of $name is damaged; remove $J by hand"
+  if [[ -d $WT ]] && ((!force)); then
+    [[ -z $(git -C "$WT" status --porcelain 2>/dev/null) ]] || die "$name has uncommitted changes (use --force to throw them away)"
+    local head remote; head=$(git -C "$WT" rev-parse HEAD 2>/dev/null)
+    remote=$(git -C "$WT" ls-remote "$GIT_REMOTE" "refs/heads/$branch" 2>/dev/null | cut -f1)
+    [[ $head == "$remote" ]] || die "$name has commits that are not on G7's $branch (use --force to throw them away)"
+  fi
+  if [[ -d $WT ]]; then
+    git -C "$REPOS/$repo" worktree remove --force "$WT" 2>/dev/null || rm -rf "$WT"
+  fi
+  git -C "$REPOS/$repo" worktree prune 2>/dev/null
+  git -C "$REPOS/$repo" branch -D "$branch" >/dev/null 2>&1
+  local H; H=$JOBS/.history/$name-$(date +%Y%m%d-%H%M%S); mkdir -p "$H"
+  cp -p "$J/spec" "$J/prompt.md" "$H/" 2>/dev/null
+  cp -p "$J/result.txt" "$J/summary.json" "$H/" 2>/dev/null
+  tail -n 300 "$J/pretty.log" > "$H/pretty-tail.log" 2>/dev/null
+  rm -rf "$J"
+  echo "cleaned $name (the branch stays on G7; a short record is in $H)"
+}
+
+human() { numfmt --to=iec --suffix=B "$1" 2>/dev/null || echo "$1"; }
+cmd_mem() {
+  local S=/sys/fs/cgroup/g7-agent.slice f v
+  if [[ -d $S ]]; then
+    for f in memory.current memory.high memory.max memory.swap.current memory.swap.max; do
+      v=$(cat "$S/$f" 2>/dev/null) || continue
+      [[ $v == max ]] || v=$(human "$v")
+      printf 'agent jobs  %-20s %s\n' "$f" "$v"
+    done
+  else
+    echo "g7-agent.slice is not active (no job has run since boot)"
+  fi
+  awk '/^MemTotal|^MemAvailable|^SwapTotal|^SwapFree/ {printf "G7          %-20s %.1f GiB\n", $1, $2/1048576}' /proc/meminfo
+  echo "running jobs: $(running_count) of $MAX_JOBS"
+}
+
+cmd_doctor() {
+  local ok=1 r v
+  if v=$("$CLAUDE_BIN" --version 2>/dev/null); then echo "ok    Claude Code $v"
+  else echo "FAIL  Claude Code is not installed at $CLAUDE_BIN"; ok=0; fi
+  if [[ -s $CONF/oauth-token ]]; then
+    local d; d=$(get_file "$CONF/oauth-token.date")
+    echo "ok    Claude login token stored ${d:+on $d}"
+    if [[ -n $d ]] && (( ($(date +%s) - $(date -d "$d" +%s)) > 330 * 86400 )); then
+      echo "WARN  the token is almost a year old: run claude setup-token on the PC and ssh g7-agent set-token"
+    fi
+  else
+    echo "FAIL  no Claude login token: on the PC run claude setup-token, then: ssh g7-agent set-token"; ok=0
+  fi
+  if server_up; then echo "ok    tmux server (g7-agent-tmux.service)"; else echo "FAIL  tmux server is down: sudo systemctl start g7-agent-tmux"; ok=0; fi
+  while read -r r; do
+    if git ls-remote "$GIT_URL/$r.git" HEAD >/dev/null 2>&1; then echo "ok    Git access to $r"; else echo "FAIL  no Git access to $r"; ok=0; fi
+  done < <(cmd_repos)
+  if [[ -s $CONF/ntfy-token ]]; then echo "ok    ntfy notifications to topic $NTFY_TOPIC"
+  else echo "info  no ntfy token: jobs will not notify the phone"; fi
+  echo "info  disk free for jobs: $(df -h --output=avail "$AGENT_HOME" | tail -n1 | tr -d ' ')"
+  cmd_mem | sed 's/^/info  /'
+  ((ok))
+}
+
+store_token() {  # store_token <file> <regex> <what>
+  local t
+  echo "Paste the $3, then press Enter:" >&2
+  IFS= read -r -t 300 t || die "no token read"
+  t=$(printf '%s' "$t" | tr -d '[:space:]')
+  [[ $t =~ $2 ]] || die "that does not look like a $3"
+  mkdir -p "$CONF"; (umask 077; printf '%s\n' "$t" > "$1.tmp" && mv -f "$1.tmp" "$1")
+  set_file "$1.date" "$(date -I)"
+  echo "saved the $3"
+}
+
+# --- inside a job --------------------------------------------------------------------------
+note() { printf '[g7-agent %s] %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$J/pretty.log"; }
+
+fail_job() { note "FAILED: $1"; RC=1; finalize_job; exit 1; }
+
+notify() {  # notify <title> <message>
+  [[ -s $CONF/ntfy-token ]] || return 0
+  curl -fsS -m 10 -o /dev/null -H "Authorization: Bearer $(tr -d '[:space:]' < "$CONF/ntfy-token")" \
+    -H "Title: $1" -d "$2" "$NTFY_URL/$NTFY_TOPIC" 2>/dev/null || true
+}
+
+finalize_job() {
+  [[ ${FINALIZED:-0} == 1 ]] && return 0
+  FINALIZED=1
+  trap '' INT
+  if [[ -n ${WT:-} && -d ${WT:-/nonexistent} ]]; then
+    if [[ -n $(git -C "$WT" status --porcelain 2>/dev/null) ]]; then
+      if git -C "$WT" add -A && git -C "$WT" commit --quiet --no-verify -m "WIP: uncommitted work at the end of G7 job $NAME"; then
+        note "committed the leftover changes as a WIP commit"
+      fi
+    fi
+    local head remote
+    head=$(git -C "$WT" rev-parse HEAD 2>/dev/null)
+    remote=$(git -C "$WT" ls-remote "$GIT_REMOTE" "refs/heads/$BRANCH" 2>/dev/null | cut -f1)
+    if [[ -n $head && $head != "$remote" && $head != "$(get_file "$J/startref")" ]]; then
+      if git -C "$WT" push --quiet -u "$GIT_REMOTE" "HEAD:refs/heads/$BRANCH" 2>>"$J/stderr.log"; then
+        note "pushed $BRANCH to G7"; rm -f "$J/push_failed"; set_file "$J/pushed" "$head"
+      else
+        note "PUSH REJECTED (g7-agent logs $NAME --stderr); the commits are only in $WT"; set_file "$J/push_failed" 1
+      fi
+    elif [[ -n $head && $head == "$remote" ]]; then
+      set_file "$J/pushed" "$head"
+    fi
+  fi
+  local outcome=none
+  [[ -f $J/log.jsonl ]] && outcome=$(python3 "$LIB/pretty.py" --summary "$J/log.jsonl" "$J" 2>/dev/null || echo none)
+  local st
+  if [[ ${STOPPED:-0} == 1 ]]; then st=stopped
+  elif [[ ${RC:-1} == 0 && $outcome != error ]]; then st="done"
+  else st=failed; fi
+  set_file "$J/rc" "${RC:-1}"; set_file "$J/ended" "$(date -Is)"; set_file "$J/state" "$st"
+  note "job $st ($(elapsed "$J"))"
+  notify "G7 job $NAME: $st" "$(kv "$J/spec" REPO) $BRANCH. $(head -c 300 "$J/result.txt" 2>/dev/null)"
+}
+
+cmd__run() {
+  NAME=${1:-}; J=$(job_dir "$NAME") || exit 1
+  local resume=0; [[ ${2:-} == --resume ]] && resume=1
+  local repo base model effort budget interactive sid
+  repo=$(kv "$J/spec" REPO); BRANCH=$(kv "$J/spec" BRANCH); base=$(kv "$J/spec" BASE)
+  model=$(kv "$J/spec" MODEL); effort=$(kv "$J/spec" EFFORT); budget=$(kv "$J/spec" BUDGET)
+  interactive=$(kv "$J/spec" INTERACTIVE); sid=$(kv "$J/spec" SESSION_ID)
+  ((resume)) && { [[ $(get_file "$J/next-mode") == interactive ]] && interactive=1 || interactive=0; }
+  valid_repo "$repo" && valid_branch "$BRANCH" && [[ $sid =~ ^[0-9a-f-]{36}$ ]] || { echo "damaged spec" >&2; exit 1; }
+  [[ -z $base ]] || valid_branch "$base" || [[ $base =~ ^[0-9a-f]{7,64}$ ]] || { echo "damaged spec" >&2; exit 1; }
+  [[ -z $model ]] || [[ $model =~ ^[A-Za-z0-9._:\[\]-]{1,80}$ ]] || model=
+  [[ -z $effort ]] || [[ $effort =~ ^(low|medium|high|xhigh|max)$ ]] || effort=
+  [[ -z $budget ]] || [[ $budget =~ ^[0-9]{1,4}(\.[0-9]{1,2})?$ ]] || budget=
+
+  FINALIZED=0; STOPPED=0; RC=1; WT=$WORK/$NAME
+  trap 'STOPPED=1' INT
+  trap 'STOPPED=1; finalize_job; exit 143' TERM HUP
+  rm -f "$J/rc" "$J/ended"
+  set_file "$J/state" running
+  set_file "$J/pid" "$$"
+  ((resume)) || set_file "$J/started" "$(date -Is)"
+  note "$( ((resume)) && echo resuming || echo starting) $NAME: $repo $BRANCH"
+
+  local R=$REPOS/$repo release startref
+  mkdir -p "$REPOS" "$WORK"
+  if [[ ! -d $R/.git ]]; then
+    note "cloning $repo from G7"
+    git clone --quiet --no-checkout -o "$GIT_REMOTE" "$GIT_URL/$repo.git" "$R" 2>>"$J/stderr.log" || fail_job "could not clone $repo"
+  fi
+  git -C "$R" fetch --quiet --prune "$GIT_REMOTE" 2>>"$J/stderr.log" || fail_job "could not fetch $repo"
+  git -C "$R" remote set-head "$GIT_REMOTE" --auto >/dev/null 2>&1
+  release=$(git -C "$R" symbolic-ref --quiet --short "refs/remotes/$GIT_REMOTE/HEAD" 2>/dev/null)
+  release=${release#"$GIT_REMOTE"/}
+  [[ -n $release ]] || fail_job "could not tell $repo's release branch"
+  if [[ $BRANCH == "$release" ]] || protected_branch "$BRANCH"; then fail_job "$BRANCH is a release branch"; fi
+
+  if ((!resume)); then
+    [[ ! -e $WT ]] || fail_job "$WT already exists"
+    if git -C "$R" show-ref --verify --quiet "refs/remotes/$GIT_REMOTE/$BRANCH"; then
+      startref=$GIT_REMOTE/$BRANCH
+      git -C "$R" worktree add --quiet -B "$BRANCH" "$WT" "$startref" 2>>"$J/stderr.log" || fail_job "could not check out $BRANCH"
+    else
+      local b=${base:-$release}
+      if git -C "$R" rev-parse --verify --quiet "refs/remotes/$GIT_REMOTE/$b^{commit}" >/dev/null; then
+        startref=$GIT_REMOTE/$b
+      elif [[ $b =~ ^[0-9a-f]{7,64}$ ]] && git -C "$R" rev-parse --verify --quiet "$b^{commit}" >/dev/null; then
+        startref=$b
+      else
+        fail_job "base $b is not on G7: push it from the PC first (git push g7 $b)"
+      fi
+      git -C "$R" worktree add --quiet --no-track -b "$BRANCH" "$WT" "$startref" 2>>"$J/stderr.log" || fail_job "could not create $BRANCH from $startref"
+    fi
+    set_file "$J/startref" "$(git -C "$WT" rev-parse HEAD)"
+    note "worktree $WT on $BRANCH from $startref"
+  else
+    [[ -d $WT ]] || fail_job "the worktree is gone"
+    startref=$(get_file "$J/startref")
+  fi
+
+  local prompt=$J/prompt.md; ((resume)) && prompt=$J/next-prompt.md
+  local info="G7 job: $NAME. Repository $repo (Git remote '$GIT_REMOTE' is G7's own Git server), branch $BRANCH, started from ${startref:0:12}. The release branch is $release: you cannot push it, merging happens on the PC."
+  local args=(--name "$NAME" --permission-mode "$PERMISSION_MODE"
+              --append-system-prompt-file "$LIB/system-prompt.md" --append-system-prompt "$info")
+  if ((resume)); then args+=(--resume "$sid"); else args+=(--session-id "$sid"); fi
+  [[ -z $model ]] || args+=(--model "$model")
+  [[ -z $effort ]] || args+=(--effort "$effort")
+  if [[ -s $CONF/oauth-token ]]; then
+    CLAUDE_CODE_OAUTH_TOKEN=$(tr -d '[:space:]' < "$CONF/oauth-token"); export CLAUDE_CODE_OAUTH_TOKEN
+  fi
+  export G7_AGENT_JOB=$NAME
+  cd "$WT" || fail_job "cannot enter $WT"
+
+  if ((interactive)); then
+    local p=(); [[ -s $prompt ]] && p=("$(cat "$prompt")")
+    "$CLAUDE_BIN" "${args[@]}" "${p[@]}"
+    RC=$?
+  else
+    [[ -z $budget ]] || args+=(--max-budget-usd "$budget")
+    # Only Claude is waited for: a stray process still holding the output pipe must not hold the job.
+    "$CLAUDE_BIN" -p "${args[@]}" --output-format stream-json --verbose --permission-prompts none \
+        < "$prompt" 2>>"$J/stderr.log" \
+        > >(printf '%s\n' "$BASHPID" > "$J/.view"; tee -ia "$J/log.jsonl" | python3 -u "$LIB/pretty.py" | tee -ia "$J/pretty.log")
+    RC=$?
+    local view _i; view=$(get_file "$J/.view")
+    for _i in 1 2 3 4 5 6 7 8 9 10; do [[ $view =~ ^[0-9]+$ ]] && kill -0 "$view" 2>/dev/null || break; sleep 1; done
+  fi
+  finalize_job
+  exit 0
+}
+
+cmd__selftest() {  # run inside the service by install.sh: proves the sandbox and the network rules
+  local fails=0 p code
+  pass() { echo "PASS  $1"; }
+  fail() { echo "FAIL  $1"; fails=$((fails + 1)); }
+  touch "$AGENT_HOME/.selftest-write" 2>/dev/null && rm -f "$AGENT_HOME/.selftest-write" && pass "can write its home" || fail "cannot write $AGENT_HOME"
+  for p in /srv/git /srv/vaultwarden /root /home/buttmud /opt/taxglasses /opt/memesniper /mnt/data \
+           /var/lib/memesniper /var/lib/memesniper-signer /var/lib/jenkins /var/lib/docker \
+           /etc/taxglasses /etc/memesniper-live /etc/wireguard; do
+    if [[ -n $(ls -A "$p" 2>/dev/null) ]]; then fail "can see $p"; else pass "cannot see $p"; fi
+  done
+  grep -q 'g7-agent.slice' /proc/self/cgroup && pass "runs in g7-agent.slice (memory cap)" || fail "not in g7-agent.slice"
+  sudo -n true 2>/dev/null && fail "sudo works" || pass "no sudo"
+  /opt/node24/bin/node -v >/dev/null 2>&1 && pass "Node 24 visible" || fail "no Node 24"
+  "$CLAUDE_BIN" --version >/dev/null 2>&1 && pass "Claude Code runs" || fail "Claude Code does not run"
+  getent hosts api.anthropic.com >/dev/null && pass "DNS works" || fail "DNS does not resolve api.anthropic.com"
+  code=$(curl -sS -m 15 -o /dev/null -w '%{http_code}' https://api.anthropic.com/ 2>/dev/null)
+  [[ -n $code && $code != 000 ]] && pass "reaches api.anthropic.com" || fail "cannot reach api.anthropic.com"
+  curl -sS -m 5 -o /dev/null http://192.168.0.6:8080/ 2>/dev/null && fail "reaches Jenkins on the LAN address" || pass "LAN blocked (192.168.0.6:8080)"
+  curl -sS -m 5 -o /dev/null http://10.77.0.1:8090/ 2>/dev/null && fail "reaches TaxGlasses on the VPN address" || pass "VPN addresses blocked (10.77.0.1:8090)"
+  while read -r p; do
+    git ls-remote "$GIT_URL/$p.git" HEAD >/dev/null 2>&1 && pass "Git fetch from $p" || fail "Git fetch from $p"
+  done < <(cmd_repos)
+  echo "selftest: $fails failed"
+  ((fails == 0))
+}
+
+# ---------------------------------------------------------------------------------------------
+if [[ ${1:-} == --ssh ]]; then
+  read -r -a argv <<< "${SSH_ORIGINAL_COMMAND:-help}"
+  [[ ${argv[0]:-} == g7-agent ]] && argv=("${argv[@]:1}")
+  set -- "${argv[@]}"
+  [[ ${1:-} == _* ]] && die "unknown command $1 (g7-agent help)"
+fi
+cmd=${1:-help}; shift || true
+case $cmd in
+  help|-h|--help) cmd_help ;;
+  repos) cmd_repos ;;
+  start) cmd_start "$@" ;;
+  resume) cmd_resume "$@" ;;
+  list|ls) cmd_list ;;
+  status) cmd_status "$@" ;;
+  logs|log) cmd_logs "$@" ;;
+  result) cmd_result "$@" ;;
+  wait) cmd_wait "$@" ;;
+  stop) cmd_stop "$@" ;;
+  attach) cmd_attach "${1:-}" ;;
+  watch) cmd_attach "${1:-}" readonly ;;
+  clean) cmd_clean "$@" ;;
+  mem) cmd_mem ;;
+  doctor) cmd_doctor ;;
+  set-token) store_token "$CONF/oauth-token" '^sk-ant-[A-Za-z0-9_-]{20,}$' "Claude token from claude setup-token" ;;
+  set-ntfy-token) store_token "$CONF/ntfy-token" '^tk_[A-Za-z0-9]{20,}$' "ntfy token" ;;
+  _run) cmd__run "$@" ;;
+  _selftest) cmd__selftest ;;
+  *) die "unknown command $cmd (g7-agent help)" ;;
+esac

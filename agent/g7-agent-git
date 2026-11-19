@@ -1,0 +1,36 @@
+#!/bin/sh
+# /srv/git/git-shell-commands/g7-agent-git on G7 (root:root 0755). Source: agent/g7-agent-git in
+# the g7-infra repository.
+# The only thing the agent's Git key may run as the git user: its authorized_keys line forces
+# this command, which git-shell runs from ~/git-shell-commands. It allows fetching and pushing
+# the repositories listed in /etc/g7-agent/repos, and marks the agent's pushes (G7_AGENT_PUSH=1)
+# so each repository's pre-receive hook refuses the release branch, tags and deletions. A push
+# to a repository without that hook is refused here.
+set -eu
+REPOS_FILE=/etc/g7-agent/repos
+HOOK=/usr/local/lib/g7-agent/pre-receive
+cmd=${SSH_ORIGINAL_COMMAND:-}
+
+case "$cmd" in
+  "git-upload-pack '/srv/git/repos/"*".git'") verb=git-upload-pack ;;
+  "git-receive-pack '/srv/git/repos/"*".git'") verb=git-receive-pack ;;
+  *) echo "g7-agent-git: only fetch and push of the agent's repositories are allowed" >&2; exit 1 ;;
+esac
+path=${cmd#"$verb '"}
+path=${path%"'"}
+name=${path#/srv/git/repos/}
+name=${name%.git}
+case "$name" in
+  ""|.*|*[!A-Za-z0-9._-]*) echo "g7-agent-git: bad repository name" >&2; exit 1 ;;
+esac
+grep -qxF -- "$name" "$REPOS_FILE" 2>/dev/null \
+  || { echo "g7-agent-git: $name is not open to the agent (/etc/g7-agent/repos)" >&2; exit 1; }
+[ -d "$path" ] || { echo "g7-agent-git: no repository $name on G7" >&2; exit 1; }
+
+if [ "$verb" = git-receive-pack ]; then
+  cmp -s "$HOOK" "$path/hooks/pre-receive" \
+    || { echo "g7-agent-git: $name lacks the agent's pre-receive hook, so the push is refused (agent/README.md)" >&2; exit 1; }
+  G7_AGENT_PUSH=1
+  export G7_AGENT_PUSH
+fi
+exec "$verb" "$path"

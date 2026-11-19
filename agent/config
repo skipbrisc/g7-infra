@@ -1,0 +1,21 @@
+# /etc/g7-agent/config on G7 (root:root 0644). Source: agent/config in g7-infra.
+# Read by g7-agent (shell syntax) and, for PROTECTED_BRANCHES, by the pre-receive hook.
+
+# Jobs at once. Each Claude Code job takes roughly 0.5 to 1 GB with its test runs; the total is
+# capped by g7-agent.slice. Raise both together, and only after checking G7's free memory.
+MAX_JOBS=2
+
+# Headless jobs run without permission prompts: the sandbox, the memory cap, the network rules
+# and the Git hook are the guard rails. "auto" is the alternative (a classifier reviews actions).
+PERMISSION_MODE=bypassPermissions
+
+# Empty: Claude Code's own default. Otherwise an alias such as opus or sonnet, or a model ID.
+MODEL=
+EFFORT=
+
+# Branches the agent may never push, in every repository, besides each repository's HEAD.
+PROTECTED_BRANCHES="master main"
+
+# Phone notifications when a job ends (needs a token: g7-agent set-ntfy-token).
+NTFY_URL=http://127.0.0.1:2586
+NTFY_TOPIC=agent

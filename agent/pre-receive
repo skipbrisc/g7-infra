@@ -1,0 +1,33 @@
+#!/bin/sh
+# pre-receive hook for the repositories open to G7's agent. Installed as
+# /srv/git/repos/<repo>.git/hooks/pre-receive (git:git 0755), with the master copy in
+# /usr/local/lib/g7-agent/pre-receive. Source: agent/pre-receive in g7-infra.
+# Does nothing for your pushes. For the agent's (G7_AGENT_PUSH=1, set by g7-agent-git) it refuses
+# the release branch (the repository's HEAD), the branches in PROTECTED_BRANCHES of
+# /etc/g7-agent/config, tags and other refs, and deleting a branch. Merging is done from the PC.
+[ "${G7_AGENT_PUSH:-}" = 1 ] || exit 0
+release=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo master)
+protected="master main"
+if [ -r /etc/g7-agent/config ]; then
+  p=$(sed -n 's/^PROTECTED_BRANCHES=["'\'']\{0,1\}\([^"'\'']*\)["'\'']\{0,1\}[[:space:]]*$/\1/p' /etc/g7-agent/config | tail -n 1)
+  [ -n "$p" ] && protected=$p
+fi
+rc=0
+while read -r _old new ref; do
+  case "$ref" in
+    refs/heads/*) branch=${ref#refs/heads/} ;;
+    *) echo "G7 agent: refused $ref (the agent may push branches only)"; rc=1; continue ;;
+  esac
+  case "$new" in
+    *[!0]*) ;;
+    *) echo "G7 agent: refused deleting $branch"; rc=1; continue ;;
+  esac
+  for p in $release $protected; do
+    if [ "$branch" = "$p" ]; then
+      echo "G7 agent: refused $branch (release branch: merge it from the PC)"
+      rc=1
+      continue 2
+    fi
+  done
+done
+exit $rc

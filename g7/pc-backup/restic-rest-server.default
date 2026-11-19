@@ -1,0 +1,7 @@
+# /etc/default/restic-rest-server on G7. Source: g7/pc-backup/ in g7-infra.
+# Restic REST server for the PC's backup (g7/pc-backup/README.md). Append-only: the PC can add
+# snapshots but never delete or change what is stored, so a PC hit by ransomware cannot wipe
+# its backups. Pruning is done on G7 itself (g7-pc-backup-offsite).
+LISTEN = 192.168.0.6:8000
+BACKUP_DIR = /mnt/data/PC-backups
+ARGS = "--append-only --private-repos --htpasswd-file /etc/restic-rest-server/users.htpasswd"
