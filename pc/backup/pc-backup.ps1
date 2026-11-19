@@ -37,13 +37,14 @@ foreach ($line in Get-Content $envFile) {
 }
 $env:RESTIC_PASSWORD_FILE = $pwFile
 $env:RESTIC_CACHE_DIR = Join-Path $env:LOCALAPPDATA 'restic-cache'
-$restic = (Get-Command restic -ErrorAction SilentlyContinue).Source
-if (-not $restic) {  # just installed by winget, or PATH not refreshed yet
+$restic = Join-Path $env:LOCALAPPDATA 'Programs\restic\restic.exe'   # where get-restic.ps1 puts it
+if (-not (Test-Path $restic)) { $restic = (Get-Command restic -ErrorAction SilentlyContinue).Source }
+if (-not $restic) {  # installed by winget, PATH not refreshed yet
     $restic = @(Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\restic.exe') +
         @(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages') -Recurse -Filter 'restic*.exe' -ErrorAction SilentlyContinue |
           ForEach-Object FullName) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
 }
-if (-not $restic) { Log "restic is not installed (winget install restic.restic)"; exit 1 }
+if (-not $restic) { Log "restic is not installed: run pc\backup\get-restic.ps1"; exit 1 }
 
 # What to back up
 $h = $env:USERPROFILE

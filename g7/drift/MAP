@@ -127,6 +127,17 @@ job  TaxGlasses-Rollback  TaxGlasses:ops/jenkins/TaxGlasses-Rollback.Jenkinsfile
 job-scm  Aeraphim-Deploy  Jenkinsfile
 job-scm  GuatemalaHope-Deploy  Jenkinsfile
 
+# --- GitHub mirrors added 2026-11-18 (pc/repos-to-g7.ps1)
+file  g7-infra:systemd/aeraphim-chatbot-mirror.service  /etc/systemd/system/aeraphim-chatbot-mirror.service  root:root  0644  yes
+file  g7-infra:systemd/aeraphim-chatbot-mirror.service.d/healthchecks.conf  /etc/systemd/system/aeraphim-chatbot-mirror.service.d/healthchecks.conf  root:root  0644  yes
+file  g7-infra:systemd/aeraphim-chatbot-mirror.timer  /etc/systemd/system/aeraphim-chatbot-mirror.timer  root:root  0644  yes
+file  g7-infra:systemd/househack-mirror.service  /etc/systemd/system/househack-mirror.service  root:root  0644  yes
+file  g7-infra:systemd/househack-mirror.service.d/healthchecks.conf  /etc/systemd/system/househack-mirror.service.d/healthchecks.conf  root:root  0644  yes
+file  g7-infra:systemd/househack-mirror.timer  /etc/systemd/system/househack-mirror.timer  root:root  0644  yes
+file  g7-infra:systemd/cryptoagent-mirror.service  /etc/systemd/system/cryptoagent-mirror.service  root:root  0644  yes
+file  g7-infra:systemd/cryptoagent-mirror.service.d/healthchecks.conf  /etc/systemd/system/cryptoagent-mirror.service.d/healthchecks.conf  root:root  0644  yes
+file  g7-infra:systemd/cryptoagent-mirror.timer  /etc/systemd/system/cryptoagent-mirror.timer  root:root  0644  yes
+
 # --- G7 agent (agent/): Claude Code jobs handed over from the PC. /srv/agent is the agent's own
 # home and is not compared. The service is "no": it is long-running and holds the jobs.
 file  g7-infra:agent/g7-agent  /usr/local/bin/g7-agent  root:root  0755  yes
@@ -144,10 +155,9 @@ file  g7-infra:agent/no-interactive-login  /srv/git/git-shell-commands/no-intera
 file  g7-infra:agent/pre-receive  /srv/git/repos/TaxGlasses.git/hooks/pre-receive  git:git  0755  no
 file  g7-infra:agent/pre-receive  /srv/git/repos/Aeraphim.git/hooks/pre-receive  git:git  0755  no
 file  g7-infra:agent/pre-receive  /srv/git/repos/guatemalahope.org.git/hooks/pre-receive  git:git  0755  no
-# Uncomment once pc/repos-to-g7.ps1 has put these on G7 and agent/install.sh has run again:
-# file  g7-infra:agent/pre-receive  /srv/git/repos/Aeraphim-Chatbot.git/hooks/pre-receive  git:git  0755  no
-# file  g7-infra:agent/pre-receive  /srv/git/repos/househack.git/hooks/pre-receive  git:git  0755  no
-# file  g7-infra:agent/pre-receive  /srv/git/repos/cryptoagent.git/hooks/pre-receive  git:git  0755  no
+file  g7-infra:agent/pre-receive  /srv/git/repos/Aeraphim-Chatbot.git/hooks/pre-receive  git:git  0755  no
+file  g7-infra:agent/pre-receive  /srv/git/repos/househack.git/hooks/pre-receive  git:git  0755  no
+file  g7-infra:agent/pre-receive  /srv/git/repos/cryptoagent.git/hooks/pre-receive  git:git  0755  no
 
 # --- The PC's backup (g7/pc-backup/): restic REST server for the PC, nightly prune and copy to Miami
 file  g7-infra:g7/pc-backup/g7-pc-backup-offsite  /usr/local/sbin/g7-pc-backup-offsite  root:root  0700  yes

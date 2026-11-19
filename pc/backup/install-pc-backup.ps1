@@ -2,7 +2,7 @@
 install-pc-backup.ps1 - set up this PC's daily backup to G7 (g7-infra g7/pc-backup/README.md).
 Run once in an ADMIN PowerShell from D:\g7-infra, after G7's side is installed:
 
-    winget install restic.restic          # once, then open a new admin PowerShell
+    powershell -NoProfile -ExecutionPolicy Bypass -File pc\backup\get-restic.ps1   # once, if restic is missing
     powershell -NoProfile -ExecutionPolicy Bypass -File pc\backup\install-pc-backup.ps1
 
 Asks for the two secrets G7's install printed (also in Vaultwarden), stores them for your
@@ -15,13 +15,14 @@ $utf8 = New-Object System.Text.UTF8Encoding($false)
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
     [Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { throw 'Run this from an admin PowerShell (the task runs elevated to copy open files).' }
-$restic = (Get-Command restic -ErrorAction SilentlyContinue).Source
-if (-not $restic) {  # just installed by winget, or PATH not refreshed yet
+$restic = Join-Path $env:LOCALAPPDATA 'Programs\restic\restic.exe'   # where get-restic.ps1 puts it
+if (-not (Test-Path $restic)) { $restic = (Get-Command restic -ErrorAction SilentlyContinue).Source }
+if (-not $restic) {  # installed by winget, PATH not refreshed yet
     $restic = @(Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\restic.exe') +
         @(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages') -Recurse -Filter 'restic*.exe' -ErrorAction SilentlyContinue |
           ForEach-Object FullName) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
 }
-if (-not $restic) { throw 'restic is not installed: winget install restic.restic, then open a new PowerShell.' }
+if (-not $restic) { throw 'restic is not installed: run pc\backup\get-restic.ps1 (no admin needed), then this again.' }
 
 $cfgDir = Join-Path $env:USERPROFILE '.config\pc-backup'
 $envFile = Join-Path $cfgDir 'rest.env'

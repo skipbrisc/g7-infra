@@ -1,0 +1,10 @@
+[Unit]
+Description=Sync househack to GitHub every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+Unit=househack-mirror.service
+
+[Install]
+WantedBy=timers.target

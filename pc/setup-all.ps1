@@ -104,7 +104,8 @@ sandboxed tmux service, Git access and hooks. It ends with a self-test inside th
     Run scp -q -r agent g7:/tmp/g7-agent-src
     Run scp -q "$HOME\.ssh\g7_agent.pub" g7:/tmp/g7_agent.pub
     Run ssh -t g7 "sudo sh /tmp/g7-agent-src/install.sh /tmp/g7_agent.pub"
-    if (-not (Ask "Did every self-test line say PASS?")) {
+    Write-Host "SKIP lines for repositories that are not on G7 yet are fine: step 7 creates them."
+    if (-not (Ask "Did the self-test end with 'selftest: 0 failed'?")) {
         throw "Fix the FAIL lines first (agent/README.md, Troubleshooting), then re-run with -From 3"
     }
 }
@@ -148,15 +149,12 @@ as written (Name and slug: same text):
 
 # ------------------------------------------------------------------------------------------
 if (Step 6 'PC backup: this PC (opens an admin window)' @'
-Installs restic if it is missing, then opens an admin PowerShell running
+Installs restic if it is missing (pc\backup\get-restic.ps1), then opens an admin PowerShell running
 pc\backup\install-pc-backup.ps1: it asks for the two secrets from step 5 and creates the
 daily task "PC backup to G7". Close that window when it says Done.
 '@) {
-    $have = Get-Command restic -ErrorAction SilentlyContinue
-    if (-not $have) {
-        Run winget install --id restic.restic -e --accept-package-agreements --accept-source-agreements
-        $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
-    }
+    $have = (Test-Path (Join-Path $env:LOCALAPPDATA 'Programs\restic\restic.exe')) -or (Get-Command restic -ErrorAction SilentlyContinue)
+    if (-not $have) { & (Join-Path $root 'pc\backup\get-restic.ps1') }
     $installer = Join-Path $root 'pc\backup\install-pc-backup.ps1'
     Start-Process powershell.exe -Verb RunAs -Wait -ArgumentList "-NoProfile -ExecutionPolicy Bypass -NoExit -File `"$installer`""
     if (Get-ScheduledTask -TaskName 'PC backup to G7' -ErrorAction SilentlyContinue) {
@@ -200,8 +198,10 @@ in g7/drift/MAP, and commits and pushes, so g7-drift agrees with G7.
     $lines = @()
     foreach ($slug in 'aeraphim-chatbot', 'househack', 'cryptoagent') {
         New-Item -ItemType Directory -Force -Path "systemd\$slug-mirror.service.d" | Out-Null
-        Run scp -q "g7:/etc/systemd/system/$slug-mirror.service" "g7:/etc/systemd/system/$slug-mirror.timer" systemd/
-        Run scp -q "g7:/etc/systemd/system/$slug-mirror.service.d/healthchecks.conf" "systemd/$slug-mirror.service.d/"
+        # One file per scp: Windows' scp drops the connection when one call names several remote files.
+        foreach ($f in "$slug-mirror.service", "$slug-mirror.timer", "$slug-mirror.service.d/healthchecks.conf") {
+            Run scp -q "g7:/etc/systemd/system/$f" "systemd/$f"
+        }
         foreach ($f in "$slug-mirror.service", "$slug-mirror.service.d/healthchecks.conf", "$slug-mirror.timer") {
             $line = "file  g7-infra:systemd/$f  /etc/systemd/system/$f  root:root  0644  yes"
             if (-not $text.Contains($line)) { $lines += $line }
@@ -219,9 +219,11 @@ in g7/drift/MAP, and commits and pushes, so g7-drift agrees with G7.
     Commit-And-Push @'
 Record the GitHub mirrors of Aeraphim-Chatbot, househack and cryptoagent, and the agent hooks
 
+g7-agent: repositories not on G7 yet are SKIP in the self-test and info in doctor, not FAIL.
+
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01QGwe7Bd3zQ24ZmHmSAE56P
-'@ @('systemd', 'g7/drift/MAP')
+'@ @('systemd', 'g7/drift/MAP', 'agent', 'pc')
     Write-Host "To confirm: ssh -t g7 `"sudo g7-drift`" should report everything matches Git."
 }
 

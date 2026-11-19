@@ -416,8 +416,11 @@ cmd_doctor() {
     echo "FAIL  no Claude login token: on the PC run claude setup-token, then: ssh g7-agent set-token"; ok=0
   fi
   if server_up; then echo "ok    tmux server (g7-agent-tmux.service)"; else echo "FAIL  tmux server is down: sudo systemctl start g7-agent-tmux"; ok=0; fi
+  local out
   while read -r r; do
-    if git ls-remote "$GIT_URL/$r.git" HEAD >/dev/null 2>&1; then echo "ok    Git access to $r"; else echo "FAIL  no Git access to $r"; ok=0; fi
+    if out=$(git ls-remote "$GIT_URL/$r.git" HEAD 2>&1 >/dev/null); then echo "ok    Git access to $r"
+    elif [[ $out == *"no repository $r on G7"* ]]; then echo "info  $r is not on G7 yet"
+    else echo "FAIL  no Git access to $r"; ok=0; fi
   done < <(cmd_repos)
   if [[ -s $CONF/ntfy-token ]]; then echo "ok    ntfy notifications to topic $NTFY_TOPIC"
   else echo "info  no ntfy token: jobs will not notify the phone"; fi
@@ -591,8 +594,11 @@ cmd__selftest() {  # run inside the service by install.sh: proves the sandbox an
   [[ -n $code && $code != 000 ]] && pass "reaches api.anthropic.com" || fail "cannot reach api.anthropic.com"
   curl -sS -m 5 -o /dev/null http://192.168.0.6:8080/ 2>/dev/null && fail "reaches Jenkins on the LAN address" || pass "LAN blocked (192.168.0.6:8080)"
   curl -sS -m 5 -o /dev/null http://10.77.0.1:8090/ 2>/dev/null && fail "reaches TaxGlasses on the VPN address" || pass "VPN addresses blocked (10.77.0.1:8090)"
+  local out
   while read -r p; do
-    git ls-remote "$GIT_URL/$p.git" HEAD >/dev/null 2>&1 && pass "Git fetch from $p" || fail "Git fetch from $p"
+    if out=$(git ls-remote "$GIT_URL/$p.git" HEAD 2>&1 >/dev/null); then pass "Git fetch from $p"
+    elif [[ $out == *"no repository $p on G7"* ]]; then echo "SKIP  $p is not on G7 yet (fine until it is created)"
+    else fail "Git fetch from $p"; fi
   done < <(cmd_repos)
   echo "selftest: $fails failed"
   ((fails == 0))
