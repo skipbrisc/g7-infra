@@ -68,7 +68,7 @@ changes.
 
 2. **PC**, in an **admin** PowerShell from `D:\g7-infra`:
 
-       winget install restic.restic          # once; then open a new PowerShell
+       powershell -NoProfile -ExecutionPolicy Bypass -File pc\backup\get-restic.ps1   # once
        powershell -NoProfile -ExecutionPolicy Bypass -File pc\backup\install-pc-backup.ps1
 
    It asks for the two secrets and keeps them in `%USERPROFILE%\.config\pc-backup`, readable
