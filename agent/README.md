@@ -32,7 +32,8 @@ proven on G7 by the install's self-test.
 
 A job runs without permission prompts (`bypassPermissions`), so the limits come from G7 itself:
 
-- **Memory.** Every job runs in `g7-agent.slice`, capped at 2.5 GB RAM and 1 GB swap together.
+- **Memory and CPU.** Every job runs in `g7-agent.slice`, capped at 2.5 GB RAM and 1 GB swap together,
+  on 3 of G7's 12 CPU threads (so test runners start about 2 workers, not 11).
   If jobs hit the cap, the kernel ends the biggest process inside the slice, never MemeSniper or
   Jenkins. Agent processes also have a raised OOM score, so if G7 as a whole ever runs out, they
   go first. At most 2 jobs run at once; a third `start` is refused with exit code 3.
@@ -122,7 +123,8 @@ topic `agent` in the phone's ntfy app.
 
 ## Memory: before raising the cap
 
-G7 has 7.5 GiB. The cap leaves about 5 GB for everything else, including MemeSniper's live
+G7 has 7.5 GiB. systemd nests the slice under `g7.slice`, so its numbers are in
+`/sys/fs/cgroup/g7.slice/g7-agent.slice/` (`memory.events` counts kills at the cap). The cap leaves about 5 GB for everything else, including MemeSniper's live
 services, Jenkins builds, Prometheus and Grafana. `ssh g7-agent mem` shows what the jobs use now.
 G7's Grafana dashboard (`http://192.168.0.6:3000`) shows memory over time. Raise
 `MemoryHigh`/`MemoryMax` in `g7-agent.slice` and `MAX_JOBS` in `config` only if both show

@@ -3,6 +3,9 @@
 # more than this from G7. MemeSniper, Jenkins, TaxGlasses and the rest keep the remaining
 # memory. When the jobs reach MemoryMax the kernel ends the biggest process inside this slice
 # only. Raise the numbers only after checking G7's memory panel in Grafana (agent/README.md).
+# AllowedCPUs: jobs see 3 of G7's 12 threads. Test runners start one worker per visible CPU
+# (vitest's default), and on 2026-11-21 a TaxGlasses verify run with 11 workers of about 500 MB
+# each hit MemoryMax. With 3 CPUs they start 2, and the rest of G7 keeps its other 9 threads.
 [Unit]
 Description=G7 agent jobs (Claude Code in tmux), memory-capped
 Before=slices.target
@@ -15,3 +18,4 @@ MemorySwapMax=1G
 CPUWeight=50
 IOWeight=50
 TasksMax=2048
+AllowedCPUs=9-11

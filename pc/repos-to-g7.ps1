@@ -32,6 +32,13 @@ param([switch]$Apply, [switch]$TaxGlassesBranches,
 $ErrorActionPreference = 'Stop'
 $env:GIT_OPTIONAL_LOCKS = '0'
 $G7 = $G7Url
+# The same Git key TaxGlasses, g7-infra and memesniper pin, so no call asks for a passphrase.
+$g7Key = Join-Path $HOME '.ssh\g7_git'
+$sshCmd = $null
+if (Test-Path $g7Key) {
+    $sshCmd = "ssh -i $($g7Key.Replace('\', '/')) -o IdentitiesOnly=yes"
+    $env:GIT_SSH_COMMAND = $sshCmd
+}
 $repos = @(
     @{ Name = 'Aeraphim-Chatbot'; Path = (Join-Path $Root 'Aeraphim-Chatbot'); GitHub = 'skipbrisc/Aeraphim-Chatbot' },
     @{ Name = 'househack';        Path = (Join-Path $Root 'househack'); GitHub = 'skipbrisc/house-hack' },
@@ -83,6 +90,9 @@ foreach ($r in $repos) {
 
     $remotes = G -C $p remote
     if ($remotes -notcontains 'g7') { Act "git remote add g7 $url" { G -C $p remote add g7 $url | Out-Null } }
+    if ($sshCmd -and ((G -C $p config --get core.sshCommand) -ne $sshCmd)) {
+        Act "pin the G7 Git key (core.sshCommand), like TaxGlasses" { G -C $p config core.sshCommand $sshCmd | Out-Null }
+    }
     $hasOrigin = $remotes -contains 'origin'
     if ($hasOrigin) { G -C $p fetch --quiet --prune --tags origin | Out-Null }
 

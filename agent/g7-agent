@@ -387,16 +387,26 @@ cmd_clean() {
 }
 
 human() { numfmt --to=iec --suffix=B "$1" 2>/dev/null || echo "$1"; }
+slice_dir() {  # systemd nests g7-agent.slice under g7.slice (a dash in a slice name means a parent)
+  local cg d; cg=$(systemctl show -p ControlGroup --value g7-agent.slice 2>/dev/null)
+  if [[ -n $cg && -d /sys/fs/cgroup$cg ]]; then printf '%s' "/sys/fs/cgroup$cg"; return 0; fi
+  for d in /sys/fs/cgroup/g7.slice/g7-agent.slice /sys/fs/cgroup/g7-agent.slice; do
+    [[ -d $d ]] && { printf '%s' "$d"; return 0; }
+  done
+  return 1
+}
 cmd_mem() {
-  local S=/sys/fs/cgroup/g7-agent.slice f v
-  if [[ -d $S ]]; then
-    for f in memory.current memory.high memory.max memory.swap.current memory.swap.max; do
+  local S f v
+  if S=$(slice_dir); then
+    for f in memory.current memory.peak memory.high memory.max memory.swap.current memory.swap.max; do
       v=$(cat "$S/$f" 2>/dev/null) || continue
       [[ $v == max ]] || v=$(human "$v")
       printf 'agent jobs  %-20s %s\n' "$f" "$v"
     done
+    printf 'agent jobs  %-20s %s\n' "CPUs" "$(cat "$S/cpuset.cpus.effective" 2>/dev/null || echo all)"
+    awk '$1 == "oom_kill" {k=$2} $1 == "high" {h=$2} END {printf "agent jobs  %-20s %d (processes killed at the cap since boot)\nagent jobs  %-20s %d (times slowed at MemoryHigh)\n", "oom_kill", k, "high", h}' "$S/memory.events" 2>/dev/null
   else
-    echo "g7-agent.slice is not active (no job has run since boot)"
+    echo "g7-agent.slice is not active"
   fi
   awk '/^MemTotal|^MemAvailable|^SwapTotal|^SwapFree/ {printf "G7          %-20s %.1f GiB\n", $1, $2/1048576}' /proc/meminfo
   echo "running jobs: $(running_count) of $MAX_JOBS"
