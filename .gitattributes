@@ -1,0 +1,7 @@
+# g7-infra: nearly everything here runs on Linux (G7, Miami), and is copied up with scp from
+# this working copy. Check it out with LF on Windows too, so a script never reaches G7 with CRLF
+# line endings (bash fails on them). Files that run on Windows keep CRLF.
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
