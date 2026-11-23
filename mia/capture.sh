@@ -80,7 +80,8 @@ done
 if [ -d /opt/skipos ] || command -v docker >/dev/null 2>&1; then
   {
     echo "== checkout"
-    git -C /opt/skipos log -1 --format='%H %s' 2>/dev/null || echo "(no /opt/skipos checkout)"
+    # As the checkout's owner: root's git refuses a repository owned by someone else.
+    sudo -u skipos git -C /opt/skipos log -1 --format='%H %s' 2>/dev/null || echo "(no /opt/skipos checkout)"
     echo
     echo "== settings in /opt/skipos/infra/docker/.env (names only, never values)"
     sed -n 's/^\([A-Z_][A-Z0-9_]*\)=.*/\1/p' /opt/skipos/infra/docker/.env 2>/dev/null
@@ -122,7 +123,9 @@ fi
     echo "$s: $(systemctl is-enabled "$s" 2>/dev/null) / $(systemctl is-active "$s" 2>/dev/null)"
   done
   echo
-  echo "== addresses"; ip -br addr
+  # Docker's bridges and per-container veth pairs are renamed on every container restart;
+  # listing them would change this file on every capture and say nothing.
+  echo "== addresses"; ip -br addr | grep -Ev '^(veth|br-|docker0)'
   echo
   echo "== default route"; ip route show default
   echo

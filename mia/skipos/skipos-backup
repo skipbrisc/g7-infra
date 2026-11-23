@@ -34,7 +34,9 @@ for v in root-escrow dbcreds db-certs certs; do
 done
 
 install -m 0600 "$DIR/infra/docker/.env" "$OUT/env"
-git -C "$DIR" rev-parse HEAD > "$OUT/commit" 2>/dev/null || true
+# As the checkout's owner: root's git refuses a repository owned by someone else.
+# shellcheck disable=SC2024  # the file is written by root on purpose; only git runs as skipos
+sudo -u skipos git -C "$DIR" rev-parse HEAD > "$OUT/commit" 2>/dev/null || true
 
 # Keep the newest 14.
 find "$ROOT" -mindepth 1 -maxdepth 1 -type d -name '20*' | sort | head -n -14 | while read -r old; do rm -rf "$old"; done
