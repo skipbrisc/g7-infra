@@ -1,0 +1,12 @@
+[Unit]
+Description=SkipOS backup: copy from Miami to G7, prune, check (g7-infra g7/skipos-backup)
+Wants=network-online.target
+After=network-online.target wg-quick@wg-mia.service
+RequiresMountsFor=/mnt/data
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/g7-skipos-pull
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=4h

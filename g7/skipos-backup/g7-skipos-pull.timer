@@ -1,0 +1,12 @@
+[Unit]
+Description=SkipOS backup from Miami to G7 every night at 00:40
+
+[Timer]
+# Miami writes its backup at 02:10 Eastern (23:10 Pacific). This runs 90 minutes later, and
+# ahead of G7's own jobs at 01:40 and about 03:20.
+OnCalendar=*-*-* 00:40
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

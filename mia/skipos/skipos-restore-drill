@@ -1,0 +1,103 @@
+#!/bin/sh
+# /usr/local/sbin/skipos-restore-drill on Miami (root:root 0755). Source: mia/skipos in g7-infra.
+# Proves a SkipOS backup can be read back, without touching the live stack:
+#   sudo skipos-restore-drill            the newest backup
+#   sudo skipos-restore-drill <folder>   a named folder under /srv/skipos-backups
+#
+# What it does:
+#   1. If the restic repository is set up (08-offsite.sh), restores the newest snapshot from
+#      it into a scratch folder and uses THAT, so the encrypted copy is what is tested.
+#      Otherwise it uses the dated folder directly.
+#   2. Starts a throwaway Postgres (no network, data in memory), loads the dump into it, and
+#      checks the things a restored instance must have: the active policy pointer, both
+#      constitutions, and at least one run.
+#   3. Checks each volume archive opens and is not empty, and the saved settings are complete.
+#
+# What it does NOT prove: that a whole stack comes up from these files on a new server. The
+# database, its rotated credentials and the root escrow have to be restored together, and
+# that has only ever been done by this script's reading, never for real. A full rebuild on a
+# scratch machine is the next level of drill.
+#
+# The throwaway container is named restore-drill-pg, never skipos-*, and is removed on exit.
+# Syntax-checked only; not yet run on Miami.
+set -eu
+[ "$(id -u)" = 0 ] || { echo "run with sudo" >&2; exit 1; }
+ROOT=/srv/skipos-backups
+C=restore-drill-pg
+IMG=pgvector/pgvector:pg17
+SCRATCH=$(mktemp -d /var/tmp/skipos-drill.XXXXXX)
+FAILS=0
+ok()   { echo "  ok    $*"; }
+bad()  { echo "  FAIL  $*"; FAILS=$((FAILS+1)); }
+cleanup() { docker rm -f "$C" >/dev/null 2>&1 || true; rm -rf "$SCRATCH"; }
+trap cleanup EXIT INT TERM
+
+if [ -n "${1:-}" ]; then
+  SRC=$ROOT/$1
+  [ -d "$SRC" ] || { echo "no such backup: $SRC" >&2; exit 1; }
+  echo "Backup under test: $SRC (the folder, as named)"
+elif [ -r /etc/skipos/restic-rest-env ] && [ -r /etc/skipos/restic-repo-pass ]; then
+  set -a
+  # shellcheck source=/dev/null
+  . /etc/skipos/restic-rest-env
+  set +a
+  RESTIC_CACHE_DIR=/var/cache/restic-skipos restic -r rest:http://10.78.0.1:8000/skipos/restic \
+    --password-file /etc/skipos/restic-repo-pass restore latest --tag skipos --target "$SCRATCH/restored" --quiet
+  SRC=$(find "$SCRATCH/restored" -type f -name pg_dumpall.sql.gz | head -n 1)
+  SRC=$(dirname "$SRC")
+  [ -d "$SRC" ] || { echo "the restic snapshot holds no backup folder" >&2; exit 1; }
+  echo "Backup under test: the newest restic snapshot ($(basename "$SRC")), restored from the encrypted repository"
+else
+  SRC=$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d -name '20*' | sort | tail -n 1)
+  [ -n "$SRC" ] || { echo "no backups under $ROOT" >&2; exit 1; }
+  echo "Backup under test: $SRC (the newest folder; no restic repository is set up)"
+fi
+
+echo "1. files"
+for f in pg_dumpall.sql.gz env; do
+  if [ -s "$SRC/$f" ]; then ok "$f is there"; else bad "$f is missing or empty"; fi
+done
+if [ -s "$SRC/commit" ]; then ok "commit recorded: $(cut -c1-12 "$SRC/commit")"; else echo "  note  no commit recorded (backups before 2026-11-23 did not record it)"; fi
+for k in AGE_ROOT_PASSPHRASE AUTH_JWT_SECRET HOOK_GOVERNED_ROOT_HOST HOOK_CERTS_ROOT_HOST; do
+  if grep -q "^$k=." "$SRC/env" 2>/dev/null; then ok "setting $k has a value"; else bad "setting $k is missing"; fi
+done
+for v in root-escrow dbcreds db-certs certs; do
+  N=$(tar -tzf "$SRC/volume-$v.tgz" 2>/dev/null | grep -vc '/$' || true)
+  if [ "${N:-0}" -gt 0 ]; then ok "volume $v: $N files"; else bad "volume $v: archive missing, unreadable or empty"; fi
+done
+
+echo "2. the database, loaded into a throwaway Postgres"
+gzip -t "$SRC/pg_dumpall.sql.gz" || { bad "the dump is not a valid gzip file"; echo "DRILL FAILED ($FAILS)"; exit 1; }
+docker rm -f "$C" >/dev/null 2>&1 || true
+docker run -d --name "$C" --network none --tmpfs /var/lib/postgresql/data \
+  -e POSTGRES_PASSWORD=drill "$IMG" >/dev/null
+i=0
+until docker exec "$C" pg_isready -U postgres -q 2>/dev/null; do
+  i=$((i+1)); [ "$i" -lt 60 ] || { bad "the throwaway Postgres did not start"; echo "DRILL FAILED ($FAILS)"; exit 1; }
+  sleep 1
+done
+sleep 2
+# pg_dumpall recreates the postgres role too, which already exists: that one error is
+# expected, so errors do not stop the load. What counts is what is there afterwards.
+gunzip -c "$SRC/pg_dumpall.sql.gz" | docker exec -i "$C" psql -U postgres -q -d postgres >"$SCRATCH/load.log" 2>&1 || true
+ERRS=$(grep -c '^ERROR' "$SCRATCH/load.log" || true)
+echo "  note  load finished with $ERRS error line(s); 'role \"postgres\" already exists' is expected"
+grep '^ERROR' "$SCRATCH/load.log" | grep -v 'role "postgres" already exists' | head -n 5 | sed 's/^/        /' || true
+
+q() { docker exec "$C" psql -U postgres -d skipos -At -c "$1" 2>/dev/null || echo ""; }
+N=$(q "SELECT count(*) FROM governance.active_policy_set")
+if [ "$N" = 1 ]; then ok "active policy pointer: 1 row"; else bad "active policy pointer: expected 1 row, got '${N:-nothing}'"; fi
+N=$(q "SELECT count(*) FROM governance.constitution_versions")
+if [ "${N:-0}" -ge 2 ] 2>/dev/null; then ok "constitution versions: $N"; else bad "constitution versions: expected at least 2, got '${N:-nothing}'"; fi
+N=$(q "SELECT count(*) FROM runtime.runs")
+if [ "${N:-0}" -ge 1 ] 2>/dev/null; then ok "runs: $N"; else bad "runs: expected at least 1, got '${N:-nothing}'"; fi
+N=$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog','information_schema')")
+if [ "${N:-0}" -ge 50 ] 2>/dev/null; then ok "tables restored: $N"; else bad "tables restored: expected at least 50, got '${N:-nothing}'"; fi
+
+echo
+if [ "$FAILS" = 0 ]; then
+  echo "DRILL PASSED: this backup reads back. (Not proven: a full stack rebuild from it.)"
+else
+  echo "DRILL FAILED: $FAILS check(s). The load log's first errors are above."
+  exit 1
+fi

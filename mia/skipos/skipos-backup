@@ -7,12 +7,15 @@
 #   - infra/docker/.env and the checked-out commit
 # Keeps 14 days.
 #
-# TWO LIMITS, both open:
-#   1. This is on the SAME DISK as the live stack. It protects against a bad change or a wiped
-#      volume, not against losing the server. An off-server copy is not set up.
-#   2. A restore has never been tried. Until it has, treat this as raw material, not a backup.
-# The files are unencrypted and include the stack's secrets. They are root-only, on a disk
-# that already holds the same secrets live.
+#
+# Off the server: when 08-offsite.sh has been run, each night's folder is also added to an
+# encrypted restic repository behind this server's append-only REST server
+# (rest:http://10.78.0.1:8000/skipos/restic), and G7 copies that repository to its own backup
+# disk every night (g7/skipos-backup in g7-infra). Without 08-offsite.sh the backup is on this
+# disk only, which covers a bad change or a wiped volume but not losing the server.
+#
+# The dated folders are unencrypted and include the stack's secrets. They are root-only, on a
+# disk that already holds the same secrets live. Check a backup with skipos-restore-drill.
 set -eu
 [ "$(id -u)" = 0 ] || { echo "run with sudo" >&2; exit 1; }
 DIR=/opt/skipos
@@ -37,6 +40,19 @@ install -m 0600 "$DIR/infra/docker/.env" "$OUT/env"
 # As the checkout's owner: root's git refuses a repository owned by someone else.
 # shellcheck disable=SC2024  # the file is written by root on purpose; only git runs as skipos
 sudo -u skipos git -C "$DIR" rev-parse HEAD > "$OUT/commit" 2>/dev/null || true
+
+# The encrypted, off-server-bound copy (08-offsite.sh). A failure here fails the run: a night
+# with no off-server copy must not look like a good backup.
+if [ -r /etc/skipos/restic-rest-env ] && [ -r /etc/skipos/restic-repo-pass ]; then
+  set -a
+  # shellcheck source=/dev/null
+  . /etc/skipos/restic-rest-env
+  set +a
+  RESTIC_CACHE_DIR=/var/cache/restic-skipos restic -r rest:http://10.78.0.1:8000/skipos/restic \
+    --password-file /etc/skipos/restic-repo-pass backup "$OUT" --tag skipos --host mia --quiet \
+    || { echo "skipos-backup: the restic copy failed" >&2; exit 1; }
+  echo "skipos-backup: added to the restic repository"
+fi
 
 # Keep the newest 14.
 find "$ROOT" -mindepth 1 -maxdepth 1 -type d -name '20*' | sort | head -n -14 | while read -r old; do rm -rf "$old"; done

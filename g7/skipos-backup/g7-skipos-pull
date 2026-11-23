@@ -1,0 +1,66 @@
+#!/bin/sh
+# /usr/local/sbin/g7-skipos-pull on G7 (root:root 0700). Source: g7/skipos-backup/ in g7-infra.
+# Nightly: copies SkipOS' backup OFF the Miami server onto G7's backup disk
+# (g7/skipos-backup/README.md):
+#   1. copy every snapshot G7 does not have yet from Miami's repository;
+#   2. alert if the newest snapshot is more than 30 hours old (Miami stopped backing up);
+#   3. forget and prune old snapshots in G7's copy (Miami's is append-only and keeps all);
+#   4. Sundays: read back G7's copy and check it.
+# Run by g7-skipos-pull.timer; by hand: sudo /usr/local/sbin/g7-skipos-pull
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export RESTIC_REPOSITORY=/mnt/data/skipos-backups/restic
+export RESTIC_PASSWORD_FILE=/root/.restic-skipos
+export RESTIC_CACHE_DIR=/var/cache/restic-skipos
+SOURCE=rest:http://10.78.0.1:8000/skipos/restic
+MIAMI_LOGIN=/root/.restic-mia-skipos-rest
+NTFY_TOKEN_FILE=/root/.ntfy-g7-token
+MAX_AGE_HOURS=30
+
+notify() { # title, message, priority
+  [ -r "$NTFY_TOKEN_FILE" ] || return 0
+  curl -fsS -m 10 -o /dev/null -H "Authorization: Bearer $(tr -d '[:space:]' < "$NTFY_TOKEN_FILE")" \
+    -H "Title: $1" -H "Priority: $3" -d "$2" http://127.0.0.1:2586/g7 || true
+}
+fail() { notify "SkipOS backup: problem on G7" "$1" high; echo "g7-skipos-pull: $1" >&2; exit 1; }
+
+mountpoint -q /mnt/data || fail "the backup disk (/mnt/data) is not mounted"
+[ -f "$RESTIC_REPOSITORY/config" ] || fail "no SkipOS repository at $RESTIC_REPOSITORY (run g7/skipos-backup/install.sh)"
+[ -r "$RESTIC_PASSWORD_FILE" ] || fail "no password file $RESTIC_PASSWORD_FILE"
+[ -r "$MIAMI_LOGIN" ] || fail "no Miami login ($MIAMI_LOGIN)"
+
+# 1. Everything Miami has that G7 does not. The login applies to the rest: repository only.
+set -a
+# shellcheck source=/dev/null
+. "$MIAMI_LOGIN"
+set +a
+restic copy --retry-lock 1h --from-repo "$SOURCE" --from-password-file "$RESTIC_PASSWORD_FILE" --quiet \
+  || fail "the copy of the SkipOS backup from Miami failed (is the link to Miami up?)"
+
+# 2. How old is the newest snapshot G7 now holds?
+NEWEST_AGE=$(restic snapshots --json --no-lock 2>/dev/null | python3 -c '
+import datetime, json, re, sys
+snaps = json.load(sys.stdin) or []
+times = [datetime.datetime.fromisoformat(re.sub(r"\.\d+", "", s["time"]).replace("Z", "+00:00")) for s in snaps]
+if times:
+    newest = max(times)
+    age = datetime.datetime.now(datetime.timezone.utc) - newest
+    print(newest.strftime("%Y-%m-%d %H:%M"), int(age.total_seconds() // 3600))
+') || NEWEST_AGE=""
+[ -n "$NEWEST_AGE" ] || fail "Miami's SkipOS repository holds no snapshots yet"
+NEWEST=${NEWEST_AGE% *}
+AGE_HOURS=${NEWEST_AGE##* }
+
+# 3. Keep 30 daily, 12 weekly, 24 monthly on G7.
+restic forget --retry-lock 1h --keep-daily 30 --keep-weekly 12 --keep-monthly 24 --prune --quiet \
+  || fail "restic forget/prune of G7's SkipOS copy failed"
+if [ "$(date +%u)" = 7 ]; then
+  restic check --retry-lock 1h --read-data --quiet || fail "restic check found a problem in G7's SkipOS copy"
+fi
+
+FREE=$(df -h --output=avail /mnt/data | tail -1 | tr -d ' ')
+if [ "$AGE_HOURS" -gt "$MAX_AGE_HOURS" ]; then
+  fail "SkipOS' newest backup is $AGE_HOURS hours old ($NEWEST UTC). Is skipos-backup.timer running on Miami?"
+fi
+notify "SkipOS backup ok" "Newest snapshot $NEWEST UTC, copied from Miami. Backup disk free: $FREE." low
+echo "g7-skipos-pull: newest snapshot $NEWEST UTC; copied from Miami; pruned; $FREE free on /mnt/data"

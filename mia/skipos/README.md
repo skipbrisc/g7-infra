@@ -144,7 +144,9 @@ hand-typed `down -v`.
 | Firewall | ufw: 8300/tcp on `wg0` from 10.78.0.11 only; 8301/tcp on `wg0` from 10.78.0.2 only |
 | Health check | `/usr/local/sbin/skipos-health`, root's crontab, every 5 minutes |
 | Status line | `/var/lib/skipos-status/index.txt`, served at `http://10.78.0.1:8301/` to G7 only |
-| Backup | `/usr/local/sbin/skipos-backup`, `skipos-backup.timer` at 02:10, into `/srv/skipos-backups` |
+| Backup | `/usr/local/sbin/skipos-backup`, `skipos-backup.timer` at 02:10, into `/srv/skipos-backups` and `rest:http://10.78.0.1:8000/skipos/restic` |
+| Restore drill | `/usr/local/sbin/skipos-restore-drill` |
+| Backup secrets | `/etc/skipos/restic-repo-pass`, `/etc/skipos/restic-rest-env`, root 0600 |
 
 ## How an alert reaches you
 
@@ -156,16 +158,20 @@ would freeze the last good line; the "Miami heartbeat" check on Healthchecks.io 
 the same cron and catches that. Both scripts still ping a Healthchecks.io address if one is
 stored in `/etc/skipos/hc-ping-url` or `/etc/skipos/hc-backup-url`; neither file is needed.
 
-## Backup: half done
+## Backup
 
-`skipos-backup` writes a nightly database dump, the small volumes and `.env` to
-`/srv/skipos-backups`, and keeps 14 days. Two things are missing:
+`skipos-backup` runs at 02:10. It writes a database dump, the small volumes and `.env` to
+`/srv/skipos-backups/<date>/` (14 days kept), and, once `08-offsite.sh` has been run, adds
+that folder to an encrypted restic repository behind this server's append-only REST server.
+G7 copies that repository to its own backup disk every night: `g7/skipos-backup/README.md`
+has the design, the install for both sides, and the secrets.
 
-1. **It is on the same disk as the stack.** It covers a bad change or a wiped volume. It does
-   not cover losing the server. An off-server copy needs a decision: G7 has 63 GB free and
-   already runs a restic REST server for the PC, but that listens on the home LAN address,
-   which Miami cannot reach.
-2. **A restore has never been tried.** Do a drill before relying on it.
+    scp mia/skipos/08-offsite.sh mia/skipos/skipos-backup mia/skipos/skipos-restore-drill mia:/tmp/skipos-setup/
+    ssh -t mia "sudo sh /tmp/skipos-setup/08-offsite.sh"
+
+Check a backup with `sudo skipos-restore-drill`: it restores the newest snapshot, loads the
+database into a throwaway Postgres and checks the policy pointer, both constitutions and the
+runs. That proves the backup reads back. A whole-stack rebuild from it has never been done.
 
 ## Not done
 
@@ -194,6 +200,7 @@ stored in `/etc/skipos/hc-ping-url` or `/etc/skipos/hc-backup-url`; neither file
 | `AGE_ROOT_PASSPHRASE` | `.env` on Miami, and Vaultwarden | The root escrow cannot be unsealed. Fresh instance. |
 | `AUTH_JWT_SECRET` | `.env` on Miami, and Vaultwarden | Generate a new one and restart; every session is logged out |
 | Deploy key | Miami only | Delete it on GitHub, remove the file, run `02-repo.sh` again |
+| Backup repository password and REST login | Miami `/etc/skipos/`, G7 `/root/`, and Vaultwarden | See `g7/skipos-backup/README.md` |
 
 ## Removing it
 

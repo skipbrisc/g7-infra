@@ -131,8 +131,9 @@ home network. Untick it to keep reaching 192.168.0.x while connected.
 
 ## Rebuilding
 
-Miami is not backed up anywhere. That is deliberate: it holds a copy of G7's backups and VPN
-keys that can be regenerated. Losing it costs a re-upload of the backups and new configs for
+Miami itself is not backed up. That is deliberate for everything except SkipOS: it holds a
+copy of G7's backups and VPN keys that can be regenerated. SkipOS' data is the exception and
+is copied to G7 every night (`g7/skipos-backup/README.md`). Losing it costs a re-upload of the backups and new configs for
 every VPN device.
 
 1. **Base system.** Debian 13 from the provider. In the web console as root: `apt update &&
