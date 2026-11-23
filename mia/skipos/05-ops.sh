@@ -19,9 +19,6 @@ LINE='*/5 * * * * /usr/local/sbin/skipos-health >/dev/null 2>&1'
 ( crontab -l 2>/dev/null | grep -v 'skipos-health' ; echo "$LINE" ) | crontab -
 
 install -d -m 0755 /etc/skipos
-echo "Installed. Two Healthchecks.io checks to create, then put each ping address (the whole"
-echo "https://hc-ping.com/... line) in a root-only file:"
-echo "  skipos-stack   period 5 minutes, grace 15 minutes  ->  /etc/skipos/hc-ping-url"
-echo "  skipos-backup  period 1 day, grace 6 hours         ->  /etc/skipos/hc-backup-url"
-echo "    sudo sh -c 'umask 077; cat > /etc/skipos/hc-ping-url'     (paste, Enter, Ctrl-D)"
+echo "Installed: skipos-health every 5 minutes, skipos-backup nightly at 02:10."
 echo "Try them now:  sudo skipos-health    and    sudo systemctl start skipos-backup"
+echo "Alerts: run 07-status.sh next, so G7's Uptime Kuma can watch this server's status line."

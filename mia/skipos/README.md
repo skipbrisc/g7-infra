@@ -91,11 +91,16 @@ packages on the host the first time, so it is slow once.
 
 On the PC, connect the Miami VPN and open `http://10.78.0.1:8300`.
 
-**8. Health check and backup.**
+**8. Health check, backup and alerts.**
 
     ssh -t mia "sudo sh /tmp/skipos-setup/05-ops.sh"
+    ssh -t mia "sudo systemctl start skipos-backup; sudo journalctl -u skipos-backup -n 15 --no-pager"
+    ssh -t mia "sudo sh /tmp/skipos-setup/07-status.sh"
 
-Create the two Healthchecks.io checks it names and store their ping addresses as it says.
+The last one prints the status line and the one monitor to add in Uptime Kuma on G7:
+HTTP(s) - Keyword, `http://10.78.0.1:8301/`, keyword `skipos ok`, interval 300 seconds,
+retries 2, notification "ntfy g7". No Healthchecks.io check is used: the free plan was full
+on 2026-11-23, and G7 already watches Miami over the link.
 
 **9. Record it.** Refresh `mia/live` ("Refreshing the live copy" in `mia/README.md`), read the
 diff, commit. Update the SkipOS row in `INFRA.md`: it still says "not a running service yet".
@@ -134,9 +139,20 @@ hand-typed `down -v`.
 | Boot unit | `/etc/systemd/system/skipos.service` |
 | Live-host marker | `/etc/skipos/live-host` |
 | Console proxy | `/etc/caddy/Caddyfile`, drop-in `caddy.service.d/10-after-wg0.conf` |
-| Firewall | ufw: 8300/tcp on `wg0` from 10.78.0.11 only |
+| Firewall | ufw: 8300/tcp on `wg0` from 10.78.0.11 only; 8301/tcp on `wg0` from 10.78.0.2 only |
 | Health check | `/usr/local/sbin/skipos-health`, root's crontab, every 5 minutes |
+| Status line | `/var/lib/skipos-status/index.txt`, served at `http://10.78.0.1:8301/` to G7 only |
 | Backup | `/usr/local/sbin/skipos-backup`, `skipos-backup.timer` at 02:10, into `/srv/skipos-backups` |
+
+## How an alert reaches you
+
+`skipos-health` writes `skipos ok` or `skipos DOWN: <what>` every 5 minutes. Uptime Kuma on
+G7 fetches that line over the `wg-mia` link and sends ntfy topic `g7` when the words
+`skipos ok` are missing. That covers a stopped container, a console that does not answer, a
+backup more than 30 hours old, Caddy down, and Miami unreachable. A stopped cron on Miami
+would freeze the last good line; the "Miami heartbeat" check on Healthchecks.io is pinged by
+the same cron and catches that. Both scripts still ping a Healthchecks.io address if one is
+stored in `/etc/skipos/hc-ping-url` or `/etc/skipos/hc-backup-url`; neither file is needed.
 
 ## Backup: half done
 
@@ -176,13 +192,13 @@ hand-typed `down -v`.
 | `AGE_ROOT_PASSPHRASE` | `.env` on Miami, and Vaultwarden | The root escrow cannot be unsealed. Fresh instance. |
 | `AUTH_JWT_SECRET` | `.env` on Miami, and Vaultwarden | Generate a new one and restart; every session is logged out |
 | Deploy key | Miami only | Delete it on GitHub, remove the file, run `02-repo.sh` again |
-| Healthchecks ping addresses | `/etc/skipos/hc-*-url` on Miami | Copy them from each check's page |
 
 ## Removing it
 
     sudo systemctl disable --now skipos.service skipos-backup.timer
     sudo skipos-ctl down
     sudo ufw delete allow in on wg0 from 10.78.0.11 to 10.78.0.1 port 8300 proto tcp
+    sudo ufw delete allow in on wg0 from 10.78.0.2 to 10.78.0.1 port 8301 proto tcp
 
 That keeps the volumes. Deleting the data as well is `docker volume rm` on each `skipos_*`
 volume, and cannot be undone.
