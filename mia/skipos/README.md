@@ -74,7 +74,9 @@ On GitHub: `skipbrisc/SkipOS` > Settings > Deploy keys > Add deploy key. Paste t
 
 In `ps`, the setup containers (`provision-db-certs`, `migrate`, `provision-root`,
 `ca-bootstrap`, `seed`, `export-host-certs`, `creds-bootstrap`) show as exited with code 0.
+So does `worker-claude`: it stops by design until it is armed with `CLAUDE_AGENT_LIVE=1`.
 Everything else should be running. If one is not: `sudo skipos-ctl logs <service>`.
+(First run on Miami, 2026-11-23: 19 images built in about 4 minutes, 14 containers up.)
 
 **6. Governance bootstrap.** A fresh database has no constitution and denies every run until
 this is done (`docs/operations/governance-bootstrap.md` in SkipOS). It installs the repo's

@@ -7,7 +7,10 @@
 # No address file: it only prints the result. Never exits non-zero, so cron stays quiet.
 DIR=/opt/skipos
 COMPOSE="docker compose -f $DIR/infra/docker/docker-compose.yml"
-WANT="postgres redis redis-agent auth pdp temporal memory embedder api orchestrator worker-node gateway-realtime worker-claude admin admin-bearers"
+WANT="postgres redis redis-agent auth pdp temporal memory embedder api orchestrator worker-node gateway-realtime admin admin-bearers"
+# worker-claude exits with code 0 by design until it is armed, so it is expected to be
+# running only when CLAUDE_AGENT_LIVE=1 is set in the stack's .env.
+grep -q '^CLAUDE_AGENT_LIVE=1' "$DIR/infra/docker/.env" 2>/dev/null && WANT="$WANT worker-claude"
 
 RUNNING=$($COMPOSE ps --status running --services 2>/dev/null || true)
 DOWN=""
