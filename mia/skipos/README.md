@@ -2,8 +2,9 @@
 
 SkipOS (the governed multi-agent stack, `D:\SkipOS`) runs on Miami as a Docker Compose stack:
 about 20 containers, with the operator console reachable from the PC over the Miami VPN.
-Written 2026-11-23. **Every script here has been syntax-checked and linted, and none has been
-run on Miami yet.** Run them one at a time and read the output before the next.
+Installed 2026-11-23: scripts 01 to 05 and 07 ran on Miami as written here, the stack came up
+(14 containers), the governance bootstrap completed, and the console loaded from the PC.
+`06-gates.sh` (optional) has not been run.
 
     PC ── Miami VPN (10.78.0.11) ──▶ Caddy on Miami 10.78.0.1:8300 ──▶ console 127.0.0.1:3000
                                                                           │ mTLS
@@ -103,7 +104,8 @@ retries 2, notification "ntfy g7". No Healthchecks.io check is used: the free pl
 on 2026-11-23, and G7 already watches Miami over the link.
 
 **9. Record it.** Refresh `mia/live` ("Refreshing the live copy" in `mia/README.md`), read the
-diff, commit. Update the SkipOS row in `INFRA.md`: it still says "not a running service yet".
+diff, commit. `capture.sh` records SkipOS' files and state in `live/state/skipos.txt`, with
+the names of the stack's settings and never their values.
 
 **Optional, last: nightly gates.** `06-gates.sh`. Read its header first.
 

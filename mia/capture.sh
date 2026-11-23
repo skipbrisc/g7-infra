@@ -62,6 +62,52 @@ for f in 20auto-upgrades 50unattended-upgrades; do
   [ -e "/etc/apt/apt.conf.d/$f" ] && cp "/etc/apt/apt.conf.d/$f" "$L/etc/apt/apt.conf.d/$f"
 done
 
+# --- SkipOS (mia/skipos): the files that make it run, and its state. NEVER the stack's .env
+# (two secrets) and never a Healthchecks address: of both, only the names are recorded.
+mkdir -p "$L/etc/caddy" "$L/etc/docker" "$L/etc/systemd/system"
+[ -e /etc/caddy/Caddyfile ] && cp /etc/caddy/Caddyfile "$L/etc/caddy/Caddyfile"
+[ -e /etc/docker/daemon.json ] && cp /etc/docker/daemon.json "$L/etc/docker/daemon.json"
+for f in skipos.service skipos-backup.service skipos-backup.timer skipos-gates.service skipos-gates.timer; do
+  [ -e "/etc/systemd/system/$f" ] && cp "/etc/systemd/system/$f" "$L/etc/systemd/system/$f"
+done
+for d in caddy.service.d wg-quick@wg0.service.d; do
+  for f in /etc/systemd/system/$d/*.conf; do
+    [ -e "$f" ] || continue
+    mkdir -p "$L/etc/systemd/system/$d"
+    cp "$f" "$L/etc/systemd/system/$d/"
+  done
+done
+if [ -d /opt/skipos ] || command -v docker >/dev/null 2>&1; then
+  {
+    echo "== checkout"
+    git -C /opt/skipos log -1 --format='%H %s' 2>/dev/null || echo "(no /opt/skipos checkout)"
+    echo
+    echo "== settings in /opt/skipos/infra/docker/.env (names only, never values)"
+    sed -n 's/^\([A-Z_][A-Z0-9_]*\)=.*/\1/p' /opt/skipos/infra/docker/.env 2>/dev/null
+    echo
+    echo "== files in /etc/skipos (names only)"
+    ls -1 /etc/skipos 2>/dev/null
+    echo
+    echo "== containers (name, state)"
+    docker ps -a --format '{{.Names}} {{.State}}' 2>/dev/null | sort
+    echo
+    echo "== volumes"
+    docker volume ls --format '{{.Name}}' 2>/dev/null | sort
+    echo
+    echo "== DOCKER-USER (the VPN's rules ahead of Docker's)"
+    iptables -S DOCKER-USER 2>/dev/null
+    echo
+    echo "== versions"
+    docker --version 2>/dev/null
+    docker compose version 2>/dev/null
+    caddy version 2>/dev/null
+    /opt/node24/bin/node -v 2>/dev/null
+    echo
+    echo "== newest backup"
+    ls -1d /srv/skipos-backups/20* 2>/dev/null | sort | tail -n 1
+  } > "$L/state/skipos.txt" 2>&1
+fi
+
 # --- What the machine is
 {
   echo "captured: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -72,7 +118,7 @@ done
   echo "ntp-synchronized: $(timedatectl show -p NTPSynchronized --value 2>/dev/null)"
   echo
   echo "== services (is-enabled / is-active)"
-  for s in ssh ufw wg-quick@wg0 restic-rest-server cron unattended-upgrades; do
+  for s in ssh ufw wg-quick@wg0 restic-rest-server cron unattended-upgrades docker caddy skipos skipos-backup.timer; do
     echo "$s: $(systemctl is-enabled "$s" 2>/dev/null) / $(systemctl is-active "$s" 2>/dev/null)"
   done
   echo
@@ -90,11 +136,13 @@ getent passwd | awk -F: '$3>=1000 && $3<65000 {print $1 " uid=" $3 " home=" $6 "
 for u in $(getent passwd | awk -F: '$3>=1000 && $3<65000 {print $1}'); do id "$u"; done >> "$L/state/users.txt" 2>&1
 apt-mark showmanual > "$L/state/apt-manual.txt" 2>/dev/null
 
-# --- Refuse to hand over anything that still looks like a private key or a ping address.
+# --- Refuse to hand over anything that still looks like a private key, a ping address, a
+# password hash, or a 64-character hex string (the shape of SkipOS' two stack secrets).
 if grep -rEq '^[[:space:]]*(PrivateKey|PresharedKey)[[:space:]]*=[[:space:]]*[A-Za-z0-9+/]{43}=' "$L" \
    || grep -rEq 'hc-ping\.com/[0-9a-f]{8}-' "$L" \
    || grep -rlq 'PRIVATE KEY' "$L" \
-   || grep -rEq '\$2[aby]\$[0-9]{2}\$' "$L"; then
+   || grep -rEq '\$2[aby]\$[0-9]{2}\$' "$L" \
+   || grep -rEq '(^|[^0-9a-f])[0-9a-f]{64}([^0-9a-f]|$)' "$L"; then
   rm -rf "$OUT"
   echo "mia-capture: a secret survived redaction; nothing written" >&2
   exit 1
