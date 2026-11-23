@@ -99,6 +99,8 @@ Then run the restore drill on G7 (`sudo g7-restore-drill`).
   record of how the server is configured**; this README is the explanation. If `live/` is
   missing, the capture has not been run yet.
 - `add-vpn-device.sh` adds a device to the VPN.
+- `skipos/` sets up and runs the SkipOS stack on this server (`skipos/README.md`). Written
+  2026-11-23, not yet applied.
 
 ## Refreshing the live copy
 

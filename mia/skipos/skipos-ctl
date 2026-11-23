@@ -1,0 +1,37 @@
+#!/bin/sh
+# /usr/local/sbin/skipos-ctl on Miami (root:root 0755). Source: mia/skipos in g7-infra.
+# The one way the SkipOS stack is started, stopped and updated on this server.
+#   sudo skipos-ctl up | down | ps | logs [service] | pull | build | bootstrap | bootstrap-check
+# "down" never passes -v: the volumes hold the database, its credentials and the root escrow.
+set -eu
+[ "$(id -u)" = 0 ] || { echo "run with sudo" >&2; exit 1; }
+DIR=/opt/skipos
+COMPOSE="docker compose -f $DIR/infra/docker/docker-compose.yml"
+NODE_BIN=/opt/node24/bin
+[ -f "$DIR/infra/docker/.env" ] || { echo "$DIR/infra/docker/.env is missing (03-install.sh writes it)" >&2; exit 1; }
+
+case "${1:-}" in
+  up)     $COMPOSE up -d ;;
+  build)  $COMPOSE up -d --build ;;
+  down)   $COMPOSE down ;;
+  ps)     $COMPOSE ps ;;
+  logs)   shift; $COMPOSE logs --tail 100 "$@" ;;
+  pull)
+    sudo -u skipos git -C "$DIR" pull --ff-only
+    sudo -u skipos git -C "$DIR" log -1 --format='now at %h %s'
+    echo "Nothing was restarted. 'sudo skipos-ctl build' rebuilds and restarts what changed."
+    ;;
+  bootstrap|bootstrap-check)
+    # The governance bootstrap runs on the host against the published loopback ports
+    # (docs/operations/governance-bootstrap.md). It needs the built packages.
+    cd "$DIR"
+    export PATH="$NODE_BIN:$PATH" ONNXRUNTIME_NODE_INSTALL_CUDA=skip
+    # Host paths, the stack secrets and the profiles, exactly as compose reads them.
+    set -a; . "$DIR/infra/docker/.env"; set +a
+    [ -d node_modules ] || npm ci --no-audit --no-fund
+    npx tsc -b
+    if [ "$1" = bootstrap-check ]; then node scripts/bootstrap-governance.mjs --check
+    else node scripts/bootstrap-governance.mjs; fi
+    ;;
+  *) echo "usage: skipos-ctl up|build|down|ps|logs [service]|pull|bootstrap|bootstrap-check" >&2; exit 2 ;;
+esac

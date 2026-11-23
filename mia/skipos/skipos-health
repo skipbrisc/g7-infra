@@ -1,0 +1,28 @@
+#!/bin/sh
+# /usr/local/sbin/skipos-health on Miami (root:root 0755). Source: mia/skipos in g7-infra.
+# Run every 5 minutes from root's crontab. Tells Healthchecks.io whether the SkipOS stack is
+# up: every long-running service is "running" and the console answers. A failure sends the
+# list of what is down to the check's /fail address, so the alert says what broke.
+# The ping address is in /etc/skipos/hc-ping-url (root only, one line, the full address).
+# No address file: it only prints the result. Never exits non-zero, so cron stays quiet.
+DIR=/opt/skipos
+COMPOSE="docker compose -f $DIR/infra/docker/docker-compose.yml"
+WANT="postgres redis redis-agent auth pdp temporal memory embedder api orchestrator worker-node gateway-realtime worker-claude admin admin-bearers"
+
+RUNNING=$($COMPOSE ps --status running --services 2>/dev/null || true)
+DOWN=""
+for s in $WANT; do
+  echo "$RUNNING" | grep -qx "$s" || DOWN="$DOWN $s"
+done
+CODE=$(curl -s -m 10 -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/ 2>/dev/null || true)
+[ "$CODE" = 200 ] || DOWN="$DOWN console-http-$CODE"
+
+URL=$(tr -d '[:space:]' < /etc/skipos/hc-ping-url 2>/dev/null || true)
+if [ -z "$DOWN" ]; then
+  echo "skipos: ok"
+  [ -n "$URL" ] && curl -fsS -m 10 --retry 3 -o /dev/null "$URL" || true
+else
+  echo "skipos: DOWN:$DOWN"
+  [ -n "$URL" ] && curl -fsS -m 10 --retry 3 -o /dev/null --data-raw "down:$DOWN" "$URL/fail" || true
+fi
+exit 0

@@ -1,0 +1,44 @@
+#!/bin/sh
+# /usr/local/sbin/skipos-backup on Miami (root:root 0755). Source: mia/skipos in g7-infra.
+# Nightly copy of what a SkipOS rebuild would need, into /srv/skipos-backups/<date>/ :
+#   - a full logical dump of the database (pg_dumpall)
+#   - the small volumes that cannot be regenerated consistently with it:
+#     root-escrow, dbcreds, db-certs, certs
+#   - infra/docker/.env and the checked-out commit
+# Keeps 14 days.
+#
+# TWO LIMITS, both open:
+#   1. This is on the SAME DISK as the live stack. It protects against a bad change or a wiped
+#      volume, not against losing the server. An off-server copy is not set up.
+#   2. A restore has never been tried. Until it has, treat this as raw material, not a backup.
+# The files are unencrypted and include the stack's secrets. They are root-only, on a disk
+# that already holds the same secrets live.
+set -eu
+[ "$(id -u)" = 0 ] || { echo "run with sudo" >&2; exit 1; }
+DIR=/opt/skipos
+COMPOSE="docker compose -f $DIR/infra/docker/docker-compose.yml"
+ROOT=/srv/skipos-backups
+OUT=$ROOT/$(date -u +%Y%m%dT%H%M%SZ)
+umask 077
+install -d -m 0700 -o root -g root "$ROOT" "$OUT"
+
+# The database, over the container's local socket (no password, no TLS needed there).
+$COMPOSE exec -T postgres pg_dumpall -U postgres | gzip > "$OUT/pg_dumpall.sql.gz"
+gzip -t "$OUT/pg_dumpall.sql.gz"
+[ "$(stat -c %s "$OUT/pg_dumpall.sql.gz")" -gt 10000 ] || { echo "the dump is suspiciously small" >&2; exit 1; }
+
+for v in root-escrow dbcreds db-certs certs; do
+  # The database image is already on the server and has tar; nothing is pulled.
+  docker run --rm --network none -v "skipos_$v:/v:ro" -v "$OUT:/out" --entrypoint tar pgvector/pgvector:pg17 \
+    -czf "/out/volume-$v.tgz" -C /v .
+done
+
+install -m 0600 "$DIR/infra/docker/.env" "$OUT/env"
+git -C "$DIR" rev-parse HEAD > "$OUT/commit" 2>/dev/null || true
+
+# Keep the newest 14.
+find "$ROOT" -mindepth 1 -maxdepth 1 -type d -name '20*' | sort | head -n -14 | while read -r old; do rm -rf "$old"; done
+
+du -sh "$OUT" | awk '{print "skipos-backup: " $2 " (" $1 ")"}'
+URL=$(tr -d '[:space:]' < /etc/skipos/hc-backup-url 2>/dev/null || true)
+[ -n "$URL" ] && curl -fsS -m 10 --retry 3 -o /dev/null "$URL" || true

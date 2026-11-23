@@ -1,0 +1,33 @@
+#!/bin/sh
+# /usr/local/bin/skipos-gates on Miami (root:root 0755). Source: mia/skipos in g7-infra.
+# Runs SkipOS' lane gates as skipos-ci against that user's rootless Docker daemon.
+# Started by skipos-gates.service, which sets DOCKER_HOST and SKIPOS_GATES_ISOLATED.
+set -eu
+[ "$(id -un)" = skipos-ci ] || { echo "runs as skipos-ci only (through skipos-gates.service)" >&2; exit 1; }
+# Belt and braces: never run against root's daemon, whatever the environment says.
+case "${DOCKER_HOST:-}" in unix:///run/user/*/docker.sock) ;; *) echo "DOCKER_HOST is not the rootless socket" >&2; exit 1 ;; esac
+
+cd "$HOME/skipos"
+git pull --ff-only
+npm ci --no-audit --no-fund
+npm run typecheck
+
+# Compose reads the whole file whenever a gate touches it, and these have no default.
+# Throwaway values: nothing here is the live stack's.
+AUTH_JWT_SECRET=$(openssl rand -hex 32)
+HOOK_GOVERNED_ROOT_HOST=$HOME/skipos/infra/docker/runtime/governed
+HOOK_CERTS_ROOT_HOST=$HOME/skipos/infra/docker/runtime/certs
+export AUTH_JWT_SECRET HOOK_GOVERNED_ROOT_HOST HOOK_CERTS_ROOT_HOST
+
+RC=0
+node scripts/ci-local.mjs --skip redis-agent-isolation,orchestration,phase5 || RC=$?
+
+# Leftover images and build cache from the gates, in this user's daemon only.
+docker system prune -af --volumes >/dev/null 2>&1 || true
+
+URL=$(tr -d '[:space:]' < /etc/skipos/hc-gates-url 2>/dev/null || true)
+if [ -n "$URL" ]; then
+  if [ "$RC" = 0 ]; then curl -fsS -m 10 --retry 3 -o /dev/null "$URL" || true
+  else curl -fsS -m 10 --retry 3 -o /dev/null "$URL/fail" || true; fi
+fi
+exit "$RC"

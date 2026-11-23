@@ -1,0 +1,11 @@
+# /etc/systemd/system/skipos-gates.timer on Miami. Source: mia/skipos in g7-infra.
+# 04:30, after G7's nightly copy to this server (about 03:20) has finished.
+[Unit]
+Description=SkipOS nightly lane gates
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+Persistent=false
+
+[Install]
+WantedBy=timers.target

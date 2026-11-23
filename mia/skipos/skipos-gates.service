@@ -1,0 +1,20 @@
+# /etc/systemd/system/skipos-gates.service on Miami. Source: mia/skipos in g7-infra.
+# @UID@ is skipos-ci's user ID, filled in by 06-gates.sh.
+[Unit]
+Description=SkipOS lane gates (rootless Docker, isolated from the live stack)
+After=network-online.target user@@UID@.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=skipos-ci
+Environment=HOME=/home/skipos-ci
+Environment=XDG_RUNTIME_DIR=/run/user/@UID@
+Environment=DOCKER_HOST=unix:///run/user/@UID@/docker.sock
+Environment=PATH=/opt/node24/bin:/usr/bin:/bin
+Environment=ONNXRUNTIME_NODE_INSTALL_CUDA=skip
+# A claim that DOCKER_HOST above is NOT the live stack's daemon. Never set this anywhere else.
+Environment=SKIPOS_GATES_ISOLATED=1
+ExecStart=/usr/local/bin/skipos-gates
+Nice=10
+TimeoutStartSec=3h

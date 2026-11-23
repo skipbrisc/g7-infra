@@ -1,0 +1,11 @@
+# /etc/systemd/system/skipos-backup.service on Miami. Source: mia/skipos in g7-infra.
+[Unit]
+Description=SkipOS nightly backup (same disk; see skipos-backup)
+Requires=docker.service
+After=docker.service skipos.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/skipos-backup
+Nice=10
+IOSchedulingClass=idle
