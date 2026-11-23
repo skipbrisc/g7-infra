@@ -9,6 +9,7 @@ and alerts when one doesn't arrive.
 | `g7-heartbeat` | `g7-heartbeat.timer`, every 5 minutes | 5 minutes | 10 minutes | G7 is off, frozen, or has no internet |
 | `g7-backup` | `g7-backup.service`, after a successful run | 1 day | 3 hours | last night's backup failed or never ran |
 | `taxglasses-mirror` | `taxglasses-mirror.service`, after a successful push | 5 minutes | 30 minutes | the GitHub mirror stopped |
+| `skipos-mirror` | `skipos-mirror.service`, after a successful push | 5 minutes | 30 minutes | the SkipOS GitHub mirror stopped |
 | `g7-drift` | `g7-drift.service`, after a run whose alert path works | 1 day | 3 hours | the server drift check failed, could not alert, or never ran |
 | `taxglasses-nightly` | Jenkins TaxGlasses-Nightly, after a run that finished and could send any alert it needed, by its own UUID URL | 1 day | 3 hours | the nightly live check did not run (agent offline, job stuck or never started), or failed and could not alert |
 | `memesniper-integrity` | MemeSniper's integrity auditor (Codex's), by its own private UUID URL | 1 day | 3 hours | Created paused 2026-11-17. Codex's auditor reports success, `/fail` or `/log` itself |

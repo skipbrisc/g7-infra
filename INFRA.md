@@ -70,6 +70,7 @@ every address below works the same from anywhere.
 | guatemalahope.org | `guatemalahope.org.git` | Vercel | push → GuatemalaHope-Deploy (same) | Claude Code |
 | G7 and Miami themselves | `D:\g7-infra` → `g7-infra.git` | | commit → `g7-apply`, or by hand for `no` files; `g7-drift` every night | you |
 | Aeraphim-Chatbot, househack, cryptoagent | `D:\<name>` → `<name>.git` (from 2026-11-18, `pc/repos-to-g7.ps1`) | | none yet; GitHub mirror only | Claude Code |
+| SkipOS | `D:\SkipOS` → `SkipOS.git` (from 2026-11-23, `template/g7-new-repo.sh`) | not a running service yet | push → SkipOS-CI (unit lane only, pipeline in `jenkins/` here); no deploy job | Claude Code |
 
 TaxGlasses' Jenkins pipelines live in `D:\TaxGlasses\ops\jenkins\` and are installed with
 `scripts/jenkins-jobs.ps1 -Action Push` (only you run it). The websites' pipelines are the

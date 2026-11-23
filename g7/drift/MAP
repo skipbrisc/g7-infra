@@ -126,6 +126,8 @@ job  TaxGlasses-Nightly  TaxGlasses:ops/jenkins/TaxGlasses-Nightly.Jenkinsfile
 job  TaxGlasses-Rollback  TaxGlasses:ops/jenkins/TaxGlasses-Rollback.Jenkinsfile
 job-scm  Aeraphim-Deploy  Jenkinsfile
 job-scm  GuatemalaHope-Deploy  Jenkinsfile
+# SkipOS' unit lane is inline, kept in g7-infra so SkipOS itself needs no CI commit (jenkins/README.md).
+job  SkipOS-CI  g7-infra:jenkins/SkipOS-CI.Jenkinsfile
 
 # --- GitHub mirrors added 2026-11-18 (pc/repos-to-g7.ps1)
 file  g7-infra:systemd/aeraphim-chatbot-mirror.service  /etc/systemd/system/aeraphim-chatbot-mirror.service  root:root  0644  yes
@@ -137,6 +139,11 @@ file  g7-infra:systemd/househack-mirror.timer  /etc/systemd/system/househack-mir
 file  g7-infra:systemd/cryptoagent-mirror.service  /etc/systemd/system/cryptoagent-mirror.service  root:root  0644  yes
 file  g7-infra:systemd/cryptoagent-mirror.service.d/healthchecks.conf  /etc/systemd/system/cryptoagent-mirror.service.d/healthchecks.conf  root:root  0644  yes
 file  g7-infra:systemd/cryptoagent-mirror.timer  /etc/systemd/system/cryptoagent-mirror.timer  root:root  0644  yes
+
+# --- GitHub mirror added 2026-11-23 (template/g7-new-repo.sh)
+file  g7-infra:systemd/skipos-mirror.service  /etc/systemd/system/skipos-mirror.service  root:root  0644  yes
+file  g7-infra:systemd/skipos-mirror.service.d/healthchecks.conf  /etc/systemd/system/skipos-mirror.service.d/healthchecks.conf  root:root  0644  yes
+file  g7-infra:systemd/skipos-mirror.timer  /etc/systemd/system/skipos-mirror.timer  root:root  0644  yes
 
 # --- G7 agent (agent/): Claude Code jobs handed over from the PC. /srv/agent is the agent's own
 # home and is not compared. The service is "no": it is long-running and holds the jobs.
