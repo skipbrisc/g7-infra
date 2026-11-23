@@ -1,4 +1,4 @@
-captured: 2026-11-18T19:38:17Z
+captured: 2026-11-23T22:17:39Z
 hostname: mia
 PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
 VERSION_ID="13"
@@ -13,12 +13,35 @@ wg-quick@wg0: enabled / active
 restic-rest-server: enabled / active
 cron: enabled / active
 unattended-upgrades: enabled / active
+docker: enabled / active
+caddy: enabled / active
+skipos: enabled / inactive
+skipos-backup.timer: enabled / active
 
 == addresses
 lo               UNKNOWN        127.0.0.1/8 ::1/128 
 eno1             UP             38.126.208.251/24 fe80::f603:43ff:fefd:4a7d/64 
 eno1d1           DOWN           
 wg0              UNKNOWN        10.78.0.1/24 
+docker0          DOWN           172.17.0.1/16 fe80::74fa:45ff:fe0d:c7c5/64 
+br-e54abdf5de96  UP             172.18.0.1/16 fe80::e8f9:e1ff:febd:f2f1/64 
+br-97655c32e445  UP             172.19.0.1/16 fe80::d8e9:dff:fe5e:237d/64 
+veth3c01772@if2  UP             fe80::5834:32ff:fe41:2805/64 
+veth3bfb0f7@if2  UP             fe80::7035:3eff:fe87:3d12/64 
+vethc7bcef0@if2  UP             fe80::9c36:aff:fe93:ce27/64 
+vethc89c09c@if2  UP             fe80::5cb6:71ff:febb:6040/64 
+veth5cc35fa@if2  UP             fe80::b4ae:5aff:fec0:8fd2/64 
+vethfb9b74d@if2  UP             fe80::2491:6dff:fec6:56a0/64 
+veth30b2d69@if2  UP             fe80::c064:7bff:fe5d:276c/64 
+veth42c518c@if2  UP             fe80::c4f0:c1ff:fe5b:215b/64 
+veth6b8edae@if2  UP             fe80::8049:26ff:fe2c:8324/64 
+vethd8befe8@if2  UP             fe80::b8d6:7ff:feed:1bc2/64 
+veth6d723f4@if3  UP             fe80::44e5:5fff:fe1c:58b4/64 
+veth828e957@if2  UP             fe80::6c6c:e6ff:fe97:368a/64 
+vethdcaca35@if3  UP             fe80::8887:68ff:fece:978d/64 
+vethfcdf799@if2  UP             fe80::7428:37ff:fe3a:70ae/64 
+veth24ab58f@if2  UP             fe80::2c7c:84ff:feba:6f09/64 
+veth2ab9c8e@if2  UP             fe80::4442:cff:fe22:472f/64 
 
 == default route
 default via 38.126.208.1 dev eno1 onlink 
@@ -33,9 +56,10 @@ nvme0n1     894.3G disk
 
 == root filesystem
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/nvme0n1p3  864G   19G  802G   3% /
+/dev/nvme0n1p3  864G   67G  754G   9% /
 
 == backup folders
 drwxr-xr-x 3 root               root               4096 Nov 12 17:51 /srv/backups
-drwx------ 3 restic-rest-server restic-rest-server 4096 Nov 18 14:23 /srv/backups/g7
+drwx------ 4 restic-rest-server restic-rest-server 4096 Nov 18 19:36 /srv/backups/g7
+drwx------ 7 restic-rest-server restic-rest-server 4096 Nov 18 19:36 /srv/backups/g7/pc
 drwxrwxr-x 7 restic-rest-server restic-rest-server 4096 Nov 12 18:13 /srv/backups/g7/restic

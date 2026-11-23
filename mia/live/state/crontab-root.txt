@@ -1,1 +1,2 @@
 */5 * * * * curl -fsS -m 10 --retry 3 -o /dev/null https://hc-ping.com/<REDACTED>
+*/5 * * * * /usr/local/sbin/skipos-health >/dev/null 2>&1

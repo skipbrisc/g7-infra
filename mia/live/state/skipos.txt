@@ -1,0 +1,63 @@
+== checkout
+(no /opt/skipos checkout)
+
+== settings in /opt/skipos/infra/docker/.env (names only, never values)
+AGE_ROOT_PASSPHRASE
+AUTH_JWT_SECRET
+HOOK_GOVERNED_ROOT_HOST
+HOOK_CERTS_ROOT_HOST
+COMPOSE_PROFILES
+
+== files in /etc/skipos (names only)
+live-host
+
+== containers (name, state)
+skipos-admin-1 running
+skipos-admin-bearers-1 running
+skipos-api-1 running
+skipos-auth-1 running
+skipos-ca-bootstrap-1 exited
+skipos-creds-bootstrap-1 exited
+skipos-embedder-1 running
+skipos-export-host-certs-1 exited
+skipos-gateway-realtime-1 running
+skipos-memory-1 running
+skipos-migrate-1 exited
+skipos-orchestrator-1 running
+skipos-pdp-1 running
+skipos-postgres-1 running
+skipos-provision-db-certs-1 exited
+skipos-provision-root-1 exited
+skipos-redis-1 running
+skipos-redis-agent-1 running
+skipos-seed-1 exited
+skipos-temporal-1 running
+skipos-worker-claude-1 exited
+skipos-worker-node-1 running
+
+== volumes
+skipos_admin-bearers
+skipos_agent-output
+skipos_agent-repo
+skipos_certs
+skipos_db-certs
+skipos_dbcreds
+skipos_embedder-model-cache
+skipos_pgdata
+skipos_redis-agent-data
+skipos_redisdata
+skipos_root-escrow
+
+== DOCKER-USER (the VPN's rules ahead of Docker's)
+-N DOCKER-USER
+-A DOCKER-USER -d 10.78.0.0/24 -i eno1 -o wg0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A DOCKER-USER -s 10.78.0.0/24 -i wg0 -o eno1 -j ACCEPT
+
+== versions
+Docker version 29.10.0, build fdd4b8e
+Docker Compose version v5.8.0
+2.6.2
+v24.22.3
+
+== newest backup
+/srv/skipos-backups/20261123T220529Z

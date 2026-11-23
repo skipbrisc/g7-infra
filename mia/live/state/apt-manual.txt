@@ -13,6 +13,8 @@ bsdutils
 busybox
 bzip2
 ca-certificates
+caddy
+containerd.io
 coreutils
 cpio
 cron
@@ -29,6 +31,10 @@ dhcpcd-base
 diffutils
 dmidecode
 doc-debian
+docker-buildx-plugin
+docker-ce
+docker-ce-cli
+docker-compose-plugin
 dpkg
 e2fsprogs
 ethtool
@@ -38,6 +44,7 @@ findutils
 firmware-intel-graphics
 gcc-14-base
 gettext-base
+git
 grep
 groff-base
 grub-common
@@ -161,6 +168,7 @@ netcat-traditional
 nftables
 openssh-client
 openssh-server
+openssl
 openssl-provider-legacy
 os-prober
 passwd

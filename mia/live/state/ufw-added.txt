@@ -3,3 +3,5 @@ ufw allow 3333/tcp
 ufw allow 51820/udp
 ufw route allow in on wg0 out on eno1
 ufw allow in on wg0 from 10.78.0.2 to 10.78.0.1 port 8000 proto tcp comment 'restic REST, G7 only'
+ufw allow in on wg0 from 10.78.0.11 to 10.78.0.1 port 8300 proto tcp comment 'SkipOS console, PC only'
+ufw allow in on wg0 from 10.78.0.2 to 10.78.0.1 port 8301 proto tcp comment 'SkipOS status, G7 only'

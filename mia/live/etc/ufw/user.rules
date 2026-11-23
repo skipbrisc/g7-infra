@@ -29,6 +29,12 @@
 ### tuple ### allow tcp 8000 10.78.0.1 any 10.78.0.2 in_wg0 comment=72657374696320524553542c204737206f6e6c79
 -A ufw-user-input -i wg0 -p tcp -d 10.78.0.1 --dport 8000 -s 10.78.0.2 -j ACCEPT
 
+### tuple ### allow tcp 8300 10.78.0.1 any 10.78.0.11 in_wg0 comment=536b69704f5320636f6e736f6c652c205043206f6e6c79
+-A ufw-user-input -i wg0 -p tcp -d 10.78.0.1 --dport 8300 -s 10.78.0.11 -j ACCEPT
+
+### tuple ### allow tcp 8301 10.78.0.1 any 10.78.0.2 in_wg0 comment=536b69704f53207374617475732c204737206f6e6c79
+-A ufw-user-input -i wg0 -p tcp -d 10.78.0.1 --dport 8301 -s 10.78.0.2 -j ACCEPT
+
 ### END RULES ###
 
 ### LOGGING ###

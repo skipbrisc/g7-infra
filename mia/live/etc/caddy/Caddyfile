@@ -1,0 +1,22 @@
+# /etc/caddy/Caddyfile on Miami. Source: mia/skipos/04-console.sh in g7-infra.
+{
+	admin localhost:2019
+	auto_https off
+}
+http://10.78.0.1:8300 {
+	bind 10.78.0.1
+	# flush_interval -1: the console's live run feed is a server-sent event stream.
+	reverse_proxy 127.0.0.1:3000 {
+		flush_interval -1
+	}
+}
+
+# SkipOS status line for G7's Uptime Kuma. Source: mia/skipos/07-status.sh in g7-infra.
+http://10.78.0.1:8301 {
+	bind 10.78.0.1
+	root * /var/lib/skipos-status
+	rewrite * /index.txt
+	header Content-Type "text/plain; charset=utf-8"
+	header Cache-Control "no-store"
+	file_server
+}

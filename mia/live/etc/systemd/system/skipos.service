@@ -1,0 +1,20 @@
+# /etc/systemd/system/skipos.service on Miami. Source: mia/skipos in g7-infra.
+# Brings the SkipOS stack back after a reboot. Most of its services have no restart policy of
+# their own, and the one-shot setup containers have to run again in order, so this is a plain
+# "compose up" once Docker is ready. Stopping the unit stops the containers and keeps every
+# volume.
+[Unit]
+Description=SkipOS compose stack
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/skipos-ctl up
+ExecStop=/usr/local/sbin/skipos-ctl down
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target
