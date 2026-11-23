@@ -3,6 +3,8 @@
 # from the folder holding these files:   sudo sh /tmp/g7-skipos-backup/install.sh
 # Run mia/skipos/08-offsite.sh on Miami FIRST: it prints the two secrets this asks for.
 # Safe to re-run: stored secrets and the repository are kept.
+#   sudo sh install.sh reset    forget the two stored secrets first and ask for them again
+#                               (after a mistyped paste, or after Miami's 09-rotate script)
 # Syntax-checked only; not yet run on G7.
 set -eu
 cd "$(dirname "$0")"
@@ -23,6 +25,11 @@ ask_secret() { # prompt -> stdout, typed without echo
   printf '%s' "$REPLY"
 }
 
+if [ "${1:-}" = reset ]; then
+  rm -f "$PW" "$LOGIN"
+  echo "Stored secrets removed; they will be asked for again."
+fi
+
 say "packages"
 apt-get install -y restic python3 curl >/dev/null
 
@@ -34,12 +41,14 @@ say "the two secrets from Miami (mia/skipos/08-offsite.sh printed them)"
 if [ ! -s "$PW" ]; then
   V=$(ask_secret "SkipOS backup repository password")
   [ -n "$V" ] || die "no repository password given"
+  echo "   got ${#V} characters (Miami prints 44)"
   (umask 077; printf '%s\n' "$V" > "$PW")
 fi
 chmod 600 "$PW"
 if [ ! -s "$LOGIN" ]; then
   V=$(ask_secret "SkipOS backup REST password (user skipos)")
   [ -n "$V" ] || die "no REST password given"
+  echo "   got ${#V} characters (Miami prints 28; the password only, not the words before it)"
   (umask 077; printf 'RESTIC_REST_USERNAME=skipos\nRESTIC_REST_PASSWORD=%s\n' "$V" > "$LOGIN")
 fi
 chmod 600 "$LOGIN"
@@ -50,9 +59,20 @@ set -a
 . "$LOGIN"
 set +a
 export RESTIC_CACHE_DIR=/var/cache/restic-skipos
-restic -r "$SOURCE" --password-file "$PW" cat config >/dev/null 2>&1 \
-  || die "cannot open $SOURCE. Check the link (ping 10.78.0.1) and both secrets; to retype them, delete $PW and $LOGIN and run this again"
-echo "   yes"
+CODE=$(curl -s -m 10 -o /dev/null -w '%{http_code}' "http://10.78.0.1:8000/skipos/restic/config" || true)
+case "$CODE" in
+  401) echo "   Miami answers on the link (401 without a login: ok)" ;;
+  000) die "no answer from 10.78.0.1:8000. Is the link up? (ping 10.78.0.1; systemctl status wg-quick@wg-mia)" ;;
+  *)   echo "   note: expected 401 from Miami without a login, got $CODE" ;;
+esac
+CODE=$(curl -s -m 10 -o /dev/null -w '%{http_code}' -u "$RESTIC_REST_USERNAME:$RESTIC_REST_PASSWORD" "http://10.78.0.1:8000/skipos/restic/config" || true)
+[ "$CODE" = 200 ] || die "Miami refused the REST login (HTTP $CODE): the REST password is wrong. Run:  sudo sh install.sh reset"
+echo "   the REST login is accepted"
+if ! ERR=$(restic -r "$SOURCE" --password-file "$PW" cat config 2>&1 >/dev/null); then
+  echo "$ERR" | tail -n 3 >&2
+  die "the REST login works but the repository will not open: the repository password is wrong. Run:  sudo sh install.sh reset"
+fi
+echo "   the repository opens"
 
 say "G7's copy (same password, same chunking, so copies stay small)"
 if [ -f "$REPO/config" ]; then
