@@ -40,5 +40,6 @@ git -C "$DIR" rev-parse HEAD > "$OUT/commit" 2>/dev/null || true
 find "$ROOT" -mindepth 1 -maxdepth 1 -type d -name '20*' | sort | head -n -14 | while read -r old; do rm -rf "$old"; done
 
 du -sh "$OUT" | awk '{print "skipos-backup: " $2 " (" $1 ")"}'
-URL=$(tr -d '[:space:]' < /etc/skipos/hc-backup-url 2>/dev/null || true)
+URL=""
+[ -r /etc/skipos/hc-backup-url ] && URL=$(tr -d '[:space:]' < /etc/skipos/hc-backup-url)
 [ -n "$URL" ] && curl -fsS -m 10 --retry 3 -o /dev/null "$URL" || true
