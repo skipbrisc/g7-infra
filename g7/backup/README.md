@@ -10,7 +10,7 @@ workspaces or caches), `/opt/taxglasses`, `/opt/ntfy` (+ its user database), `/o
 (+ a copy of its database), every `/opt/memesniper*` and `/var/lib/memesniper*` folder (so the
 signer's live keypair and the Tier 2 folders are included; `/var/lib/memesniper` goes without
 `incoming/`, `imports/`, `.npm/`, `migration-tools/`), `/root` (the restic, ntfy and
-Healthchecks secrets and the Miami backup key), `/home/buttmud`, `/etc`, `/usr/local/sbin`,
+Healthchecks secrets and the Miami REST login), `/home/buttmud`, `/etc`, `/usr/local/sbin`,
 `/var/backups/jenkins`, `/srv/media-masters` (raw footage and promotions work copied up
 from the PC, which Git does not hold), user crontabs, the Docker named volumes (Caddy's certificates and
 state), and the list of installed packages. A Bitcoin Core data folder is

@@ -1,5 +1,5 @@
 == checkout
-(no /opt/skipos checkout)
+53ddcc36e0575ffe310e66f77f347cd597410a81 docs(extapp): draft goal — external application approval gate
 
 == settings in /opt/skipos/infra/docker/.env (names only, never values)
 AGE_ROOT_PASSPHRASE
@@ -10,6 +10,8 @@ COMPOSE_PROFILES
 
 == files in /etc/skipos (names only)
 live-host
+restic-repo-pass
+restic-rest-env
 
 == containers (name, state)
 skipos-admin-1 running
@@ -60,4 +62,4 @@ Docker Compose version v5.8.0
 v24.22.3
 
 == newest backup
-/srv/skipos-backups/20261123T220529Z
+/srv/skipos-backups/20261127T071425Z
