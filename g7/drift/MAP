@@ -78,6 +78,8 @@ file  g7-infra:etc/sudoers.d/sites-ops  /etc/sudoers.d/sites-ops  root:root  044
 file  g7-infra:etc/sudoers.d/taxglasses-ci  /etc/sudoers.d/taxglasses-ci  root:root  0440  no
 file  g7-infra:etc/network/interfaces  /etc/network/interfaces  root:root  0600  no
 file  g7-infra:etc/hostapd/hostapd.conf  /etc/hostapd/hostapd.conf  root:root  0600  no  redact-hostapd
+# The section name is case-sensitive: "[login]" is ignored and G7 retries suspend about 80 times a minute.
+file  g7-infra:etc/logind/90-lid.conf  /etc/systemd/logind.conf.d/90-lid.conf  -  -  no
 file  g7-infra:etc/wireguard/wg0.conf  /etc/wireguard/wg0.conf  root:root  0600  no  redact-wg
 file  g7-infra:etc/wireguard/wg-mia.conf  /etc/wireguard/wg-mia.conf  root:root  0600  no  redact-wg
 file  g7-infra:g7/51unattended-upgrades-java  /etc/apt/apt.conf.d/51unattended-upgrades-java  root:root  0644  yes
