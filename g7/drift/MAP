@@ -37,6 +37,7 @@ file  g7-infra:systemd/guatemalahope-mirror.service  /etc/systemd/system/guatema
 file  g7-infra:systemd/guatemalahope-mirror.service.d/healthchecks.conf  /etc/systemd/system/guatemalahope-mirror.service.d/healthchecks.conf  root:root  0644  yes
 file  g7-infra:systemd/guatemalahope-mirror.timer  /etc/systemd/system/guatemalahope-mirror.timer  root:root  0644  yes
 file  g7-infra:systemd/jenkins-agent.service  /etc/systemd/system/jenkins-agent.service  root:root  0600  no
+file  g7-infra:systemd/jenkins-agent.service.d/priority.conf  /etc/systemd/system/jenkins-agent.service.d/priority.conf  root:root  0644  yes
 file  g7-infra:systemd/memesniper-deploy-mirror.service  /etc/systemd/system/memesniper-deploy-mirror.service  root:root  0644  yes
 file  g7-infra:systemd/memesniper-deploy-mirror.service.d/healthchecks.conf  /etc/systemd/system/memesniper-deploy-mirror.service.d/healthchecks.conf  root:root  0644  yes
 file  g7-infra:systemd/memesniper-deploy-mirror.timer  /etc/systemd/system/memesniper-deploy-mirror.timer  root:root  0644  yes
